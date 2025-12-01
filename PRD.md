@@ -70,32 +70,32 @@ Faz 2: Envanter ve Hayvan Yönetimi
 
 [x] Kilo takibi için modal pencere ve veri girişi.
 
-[ ] Yem Ekleme ve Stok güncelleme ekranı.
+[ x] Yem Ekleme ve Stok güncelleme ekranı.
 
 Faz 3: Rasyon ve Maliyet Motoru (Core Feature)
-[ ] Dinamik Rasyon Oluşturucu (Inputlardan yem seçip miktar girme).
+[ x] Dinamik Rasyon Oluşturucu (Inputlardan yem seçip miktar girme).
 
-[ ] "Günlük Beslemeyi Kaydet" butonu ve arka plan hesaplamaları.
+[x] "Günlük Beslemeyi Kaydet" butonu ve arka plan hesaplamaları.
 
-[ ] Yem stoğundan otomatik düşüş mantığının kodlanması.
+[ x] Yem stoğundan otomatik düşüş mantığının kodlanması.
 
-[ ] Hayvan başına maliyetin veritabanına işlenmesi.
+[x ] Hayvan başına maliyetin veritabanına işlenmesi.
 
 Faz 4: Dashboard ve Analiz
-[ ] Dashboard ana sayfası (Kartlar: Toplam Hayvan, Kalan Yem, Aylık Gider).
+[ x] Dashboard ana sayfası (Kartlar: Toplam Hayvan, Kalan Yem, Aylık Gider).
 
-[ ] Kilo artış grafiği (Recharts kullanarak).
+[x ] Kilo artış grafiği (Recharts kullanarak).
 
-[ ] Ayarlar sayfası (Kullanıcı davet etme).
+[x ] Ayarlar sayfası (Kullanıcı davet etme).
 
-[ ] Owner hesaplarına kullanıcı tanımlama yetkisi ve bu kullanıcılara belli ekranları gösterme ve düzenleme yetkisi
+[ x] Owner hesaplarına kullanıcı tanımlama yetkisi ve bu kullanıcılara belli ekranları gösterme ve düzenleme yetkisi
 
 [ ] Excel çıktı alma excel ile kaydetme 
 
 Faz 5: Ürünleştirme (Polish)
 [ ] Mobil uyumluluk (Responsive) kontrolleri.
 
-[ ] Hata mesajlarının (Toast notifications) eklenmesi.
+[ x] Hata mesajlarının (Toast notifications) eklenmesi.
 
 [ ] Landing page (Tanıtım sayfası) ve basit bir fiyatlandırma tablosu.
 
@@ -109,9 +109,14 @@ UX: Veri girişleri pratik olmalı, çiftçi arazide tek elle sayı girebilmeli 
 Dil: Arayüz tamamen Türkçe olmalı.
 
 to-do
-[ ] admin tarafında n kullanıcı ekleme ve bu kullanıcıların yetkilerini ayarlaması(veteriner için sadece veteriner sayfasında kayıt yetkisi bazı sayfaların okuma yetkisi gibi)
+[x] admin tarafında n kullanıcı ekleme ve bu kullanıcıların yetkilerini ayarlaması(veteriner için sadece veteriner sayfasında kayıt yetkisi bazı sayfaların okuma yetkisi gibi)
 
 [ ] stok bitişine 1 hafta kala uyarı mesajı
 
-[ ] rasyonu tek hayvan için giriyorsun raporlara toplam yem mikttarı hesaplama yap çobanla paylaşım için.
+[ x] rasyonu tek hayvan için giriyorsun raporlara toplam yem mikttarı hesaplama yap çobanla paylaşım için.
 
+[x ]gider ekranında silmede beyz ekran veriyor. siliyor ama hata var. 
+
+[x ] rasyon ve stok ekranında silerken ekran yenilenmiyor.
+
+[ ] excel entegrasyonu

@@ -129,6 +129,7 @@ const RationsPage = () => {
             
             if (error) throw error;
             showToast('Rasyon başarıyla silindi!');
+            fetchRations(); // Refresh the list
         } catch (error) {
             console.error('Error deleting ration:', error);
             showToast('Silme işlemi başarısız: ' + error.message, 'error');
@@ -183,9 +184,11 @@ const RationsPage = () => {
             const data = cell.getRow().getData();
             if (!data.start_date) return "-";
             const start = new Date(data.start_date);
+            start.setHours(0, 0, 0, 0);
             const end = data.end_date ? new Date(data.end_date) : new Date();
-            const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            end.setHours(0, 0, 0, 0);
+            const diffTime = end.getTime() - start.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
             return `${diffDays} gün`;
         },
         widthGrow: 1,

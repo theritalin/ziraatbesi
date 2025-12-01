@@ -1,13 +1,22 @@
 
 import React, { useState } from 'react';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiPlus } from 'react-icons/fi';
 
-const AddAnimalModal = ({ isOpen, onClose, onAdd, groups }) => {
+const AddAnimalModal = ({ isOpen, onClose, onAdd, groups: initialGroups }) => {
   const [tagNumber, setTagNumber] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [weight, setWeight] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [group, setGroup] = useState('');
+  const [newGroupId, setNewGroupId] = useState('');
+  const [groups, setGroups] = useState(initialGroups || []);
+
+  // Sync groups with props
+  React.useEffect(() => {
+    if (initialGroups) {
+      setGroups(initialGroups);
+    }
+  }, [initialGroups]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -25,6 +34,7 @@ const AddAnimalModal = ({ isOpen, onClose, onAdd, groups }) => {
     setWeight('');
     setPurchasePrice('');
     setGroup('');
+    setNewGroupId('');
     onClose();
   };
 
@@ -87,16 +97,41 @@ const AddAnimalModal = ({ isOpen, onClose, onAdd, groups }) => {
           </div>
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">Grup</label>
-            <select
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">Grup Seçiniz (İsteğe Bağlı)</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={newGroupId}
+                  onChange={(e) => setNewGroupId(e.target.value)}
+                  placeholder="Yeni Grup ID..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  min="1"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = parseInt(newGroupId);
+                    if (id && !groups.find(g => g.id === id)) {
+                      setGroups([...groups, { id, name: `Grup ${id}` }].sort((a, b) => a.id - b.id));
+                      setNewGroupId('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  <FiPlus />
+                </button>
+              </div>
+              <select
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Grup Seçiniz (İsteğe Bağlı)</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button

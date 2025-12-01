@@ -219,6 +219,7 @@ const FeedsPage = () => {
           if (error) throw error;
           console.log('Delete successful, showing toast');
           showToast('Yem başarıyla silindi!');
+          fetchFeeds(); // Refresh the list
         } else {
           console.log('User cancelled');
         }
@@ -234,7 +235,7 @@ const FeedsPage = () => {
 
   const handleUpdateStock = async () => {
     if (!canEdit) return;
-    if (!window.confirm('Stokları güncellemek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    if (!window.confirm('Tüm stoklar baştan hesaplanacak. Devam etmek istiyor musunuz?')) return;
 
     setIsUpdatingStock(true);
     try {
@@ -242,7 +243,9 @@ const FeedsPage = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Fetch ALL rations (not just active ones)
+        console.log('🔄 Recalculating ALL stock from scratch...');
+
+        // Fetch ALL rations
         const { data: rations, error: rationsError } = await supabase
             .from('rations')
             .select('*')
@@ -255,70 +258,81 @@ const FeedsPage = () => {
             return;
         }
 
-        let totalDeductions = {}; // feed_id -> total amount to deduct
+        let totalConsumptionByFeed = {}; // feed_id -> total consumed from start
+
+        console.log('📊 Processing', rations.length, 'rations...');
 
         for (const ration of rations) {
-            if (!ration.start_date || !ration.group_id || !ration.content) continue;
-
-            // Calculate days to process
-            const startDate = new Date(ration.start_date);
-            const lastUpdate = ration.last_stock_update ? new Date(ration.last_stock_update) : null;
-            const calcStartDate = lastUpdate && lastUpdate > startDate ? lastUpdate : startDate;
-            
-            // Skip if we've already calculated up to today
-            if (lastUpdate) {
-                const lastUpdateDay = new Date(lastUpdate);
-                lastUpdateDay.setHours(0, 0, 0, 0);
-                if (lastUpdateDay.getTime() >= today.getTime()) continue;
+            if (!ration.start_date || !ration.group_id || !ration.content) {
+                console.log('⏭️  Skipping ration (missing data):', ration.name);
+                continue;
             }
 
-            // Determine the end date for calculation
-            const endDate = ration.end_date ? new Date(ration.end_date) : today;
-            const diffTime = Math.abs(endDate - calcStartDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // ALWAYS calculate from start_date (ignore last_stock_update)
+            const startDate = new Date(ration.start_date);
+            startDate.setHours(0, 0, 0, 0);
+            
+            // End date is either ration.end_date or today
+            const endDate = ration.end_date ? new Date(ration.end_date) : new Date(today);
+            endDate.setHours(0, 0, 0, 0);
+            
+            // Calculate total days (inclusive)
+            const diffTime = endDate.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-            if (diffDays <= 0) continue;
+            if (diffDays <= 0) {
+                console.log('⏭️  Skipping ration (no days):', ration.name);
+                continue;
+            }
 
-            // Get animal count
+            // Get animal count for this group
             const { count } = await supabase
                 .from('animals')
                 .select('*', { count: 'exact', head: true })
-                .eq('group_id', ration.group_id);
+                .eq('group_id', ration.group_id)
+                .eq('farm_id', farmId);
 
-            if (!count || count === 0) continue;
-
-            // Calculate consumption for each feed
-            for (const item of ration.content) {
-                if (!item.feed_id || !item.amount) continue;
-                const feedConsumption = item.amount * count * diffDays;
-                totalDeductions[item.feed_id] = (totalDeductions[item.feed_id] || 0) + feedConsumption;
+            if (!count || count === 0) {
+                console.log('⏭️  Skipping ration (no animals):', ration.name);
+                continue;
             }
 
-            // Update ration's last_stock_update
-            await supabase
-                .from('rations')
-                .update({ last_stock_update: today.toISOString() })
-                .eq('id', ration.id);
+            console.log(`✅ Ration: ${ration.name}`);
+            console.log(`   - Animals: ${count}, Days: ${diffDays}`);
+
+            // Calculate total consumption for each feed
+            for (const item of ration.content) {
+                if (!item.feed_id || !item.amount) continue;
+                const totalConsumption = item.amount * count * diffDays;
+                totalConsumptionByFeed[item.feed_id] = (totalConsumptionByFeed[item.feed_id] || 0) + totalConsumption;
+                console.log(`   - Feed ${item.feed_id}: ${item.amount} kg/day × ${count} animals × ${diffDays} days = ${totalConsumption.toFixed(2)} kg`);
+            }
         }
 
-        // Apply all deductions
-        for (const [feedId, amount] of Object.entries(totalDeductions)) {
-            const { data: currentFeed } = await supabase
+        console.log('📊 Total consumption by feed:', totalConsumptionByFeed);
+
+        // Now update each feed: current_stock = initial_stock - total_consumption
+        for (const [feedId, totalConsumed] of Object.entries(totalConsumptionByFeed)) {
+            const { data: feed } = await supabase
                 .from('feeds')
-                .select('current_stock_kg')
+                .select('initial_stock_kg')
                 .eq('id', feedId)
                 .single();
 
-            if (currentFeed) {
+            if (feed) {
+                const newStock = Math.max(0, feed.initial_stock_kg - totalConsumed);
+                
                 await supabase
                     .from('feeds')
-                    .update({ current_stock_kg: Math.max(0, currentFeed.current_stock_kg - amount) })
+                    .update({ current_stock_kg: newStock })
                     .eq('id', feedId);
+                
+                console.log(`   ✅ Feed ${feedId}: ${feed.initial_stock_kg} - ${totalConsumed.toFixed(2)} = ${newStock.toFixed(2)} kg`);
             }
         }
 
-        showToast('Stoklar başarıyla güncellendi!');
-        fetchFeeds();
+        showToast('Stoklar baştan hesaplandı ve güncellendi!');
+        fetchFeeds(); // Refresh the list
       }
     } catch (error) {
       console.error('Error updating stock:', error);

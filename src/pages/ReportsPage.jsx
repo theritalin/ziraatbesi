@@ -204,14 +204,17 @@ const ReportsPage = () => {
             let startDate;
             if (ration.start_date) {
                 startDate = new Date(ration.start_date);
+                startDate.setHours(0, 0, 0, 0);
             } else {
                 startDate = animal.birth_date ? new Date(animal.birth_date) : new Date();
+                startDate.setHours(0, 0, 0, 0);
             }
 
             const endDate = ration.end_date ? new Date(ration.end_date) : new Date();
+            endDate.setHours(0, 0, 0, 0);
             
-            // Calculate duration in days
-            const duration = Math.max(0, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+            // Calculate duration in days (inclusive of both start and end dates)
+            const duration = Math.max(0, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
             totalFeedCost += duration * dailyCost;
         });
       }
@@ -331,6 +334,187 @@ const ReportsPage = () => {
     return cols;
   }, [weighings]);
 
+  // GCAA Report Data (Günlük Canlı Ağırlık Artışı)
+  const gcaaData = useMemo(() => {
+    return animals.map(animal => {
+      const animalWeighings = weighings
+        .filter(w => w.animal_id === animal.id)
+        .sort((a, b) => new Date(a.weigh_date) - new Date(b.weigh_date));
+
+      const gcaaResults = [];
+      
+      for (let i = 1; i < animalWeighings.length; i++) {
+        const prevWeighing = animalWeighings[i - 1];
+        const currWeighing = animalWeighings[i];
+        
+        const prevDate = new Date(prevWeighing.weigh_date);
+        const currDate = new Date(currWeighing.weigh_date);
+        const daysDiff = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
+        
+        const weightGain = currWeighing.weight_kg - prevWeighing.weight_kg;
+        const gcaa = daysDiff > 0 ? (weightGain / daysDiff) : 0;
+        
+        gcaaResults.push({
+          period: `${prevWeighing.weigh_date} - ${currWeighing.weigh_date}`,
+          days: daysDiff,
+          start_weight: prevWeighing.weight_kg,
+          end_weight: currWeighing.weight_kg,
+          total_gain: weightGain,
+          gcaa: gcaa
+        });
+      }
+      
+      return {
+        tag_number: animal.tag_number,
+        weighings_count: animalWeighings.length,
+        periods: gcaaResults,
+        average_gcaa: gcaaResults.length > 0 
+          ? gcaaResults.reduce((sum, r) => sum + r.gcaa, 0) / gcaaResults.length 
+          : 0
+      };
+    }).filter(a => a.periods.length > 0);
+  }, [animals, weighings]);
+
+  // Flatten GCAA data for table display
+  const gcaaDataFlattened = useMemo(() => {
+    const flattened = [];
+    gcaaData.forEach(animal => {
+      animal.periods.forEach((period, index) => {
+        flattened.push({
+          tag_number: animal.tag_number,
+          period_number: index + 1,
+          period: period.period,
+          days: period.days,
+          start_weight: period.start_weight,
+          end_weight: period.end_weight,
+          total_gain: period.total_gain,
+          gcaa: period.gcaa,
+          average_gcaa: animal.average_gcaa
+        });
+      });
+    });
+    return flattened;
+  }, [gcaaData]);
+
+  const columnsGCAA = [
+    { title: "Küpe No", field: "tag_number", sorter: "string", widthGrow: 2 },
+    { title: "Dönem", field: "period_number", sorter: "number", widthGrow: 1 },
+    { title: "Tarih Aralığı", field: "period", sorter: "string", widthGrow: 3 },
+    { title: "Gün Sayısı", field: "days", sorter: "number", widthGrow: 1 },
+    { title: "Başlangıç Kilosu (kg)", field: "start_weight", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "Bitiş Kilosu (kg)", field: "end_weight", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "Toplam Alım (kg)", field: "total_gain", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "GCAA (kg/gün)", field: "gcaa", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(3), 
+      cellClick: (e, cell) => {
+        const gcaa = cell.getValue();
+        if (gcaa > 1.2) cell.getElement().style.backgroundColor = "#d4edda";
+        else if (gcaa < 0.8) cell.getElement().style.backgroundColor = "#f8d7da";
+      }
+    },
+    { title: "Ortalama GCAA", field: "average_gcaa", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(3) }
+  ];
+
+  // Active Rations Report Data - Pivot format (Feeds x Groups)
+  const activeRationsData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const activeRations = rations.filter(r => {
+      if (!r.end_date) return true;
+      const endDate = new Date(r.end_date);
+      endDate.setHours(0, 0, 0, 0);
+      return endDate >= today;
+    });
+
+    // Collect all unique feed names and group IDs
+    const feedTotals = {}; // feed_name -> { group_id -> total_kg }
+    const allGroupIds = new Set();
+
+    activeRations.forEach(ration => {
+      const animalCount = animals.filter(a => a.group_id === ration.group_id).length;
+      
+      if (!ration.content || ration.content.length === 0 || !ration.group_id) return;
+      
+      allGroupIds.add(ration.group_id);
+      
+      ration.content.forEach(item => {
+        const feed = feeds.find(f => f.id === item.feed_id);
+        const feedName = item.name || feed?.name || 'Bilinmiyor';
+        const dailyTotal = item.amount * animalCount;
+        
+        if (!feedTotals[feedName]) {
+          feedTotals[feedName] = {};
+        }
+        
+        feedTotals[feedName][ration.group_id] = (feedTotals[feedName][ration.group_id] || 0) + dailyTotal;
+      });
+    });
+
+    // Convert to array format
+    const sortedGroupIds = Array.from(allGroupIds).sort((a, b) => a - b);
+    
+    return Object.keys(feedTotals).map(feedName => {
+      const row = { feed_name: feedName };
+      let total = 0;
+      
+      sortedGroupIds.forEach(groupId => {
+        row[`group_${groupId}`] = feedTotals[feedName][groupId] || 0;
+        total += row[`group_${groupId}`];
+      });
+      
+      row.total = total;
+      return row;
+    });
+  }, [rations, animals, feeds]);
+
+  // Dynamic columns for active rations based on existing groups
+  const columnsActiveRations = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const activeRations = rations.filter(r => {
+      if (!r.end_date) return true;
+      const endDate = new Date(r.end_date);
+      endDate.setHours(0, 0, 0, 0);
+      return endDate >= today;
+    });
+
+    const allGroupIds = new Set();
+    activeRations.forEach(r => {
+      if (r.group_id) allGroupIds.add(r.group_id);
+    });
+
+    const sortedGroupIds = Array.from(allGroupIds).sort((a, b) => a - b);
+    
+    const cols = [
+      { title: "Yem", field: "feed_name", sorter: "string", widthGrow: 2, frozen: true, minWidth: 120, tooltip: true }
+    ];
+    
+    sortedGroupIds.forEach(groupId => {
+      cols.push({
+        title: `Grup ${groupId}`,
+        field: `group_${groupId}`,
+        sorter: "number",
+        widthGrow: 1,
+        minWidth: 80,
+        headerTooltip: `Grup ${groupId}`,
+        formatter: (cell) => cell.getValue()?.toFixed(2) || '0.00'
+      });
+    });
+    
+    cols.push({
+      title: "Toplam",
+      field: "total",
+      sorter: "number",
+      widthGrow: 1,
+      minWidth: 90,
+      headerTooltip: "Toplam Günlük Kullanım (kg)",
+      formatter: (cell) => cell.getValue()?.toFixed(2)
+    });
+    
+    return cols;
+  }, [rations]);
+
   const getColumns = () => {
     switch (reportType) {
       case 'inventory': return columnsInventory;
@@ -338,6 +522,8 @@ const ReportsPage = () => {
       case 'animal_cost': return columnsAnimalCost;
       case 'group_cost': return columnsGroupCost;
       case 'weighing_pivot': return pivotColumns;
+      case 'gcaa_report': return columnsGCAA;
+      case 'active_rations': return columnsActiveRations;
       default: return columnsInventory;
     }
   };
@@ -349,6 +535,8 @@ const ReportsPage = () => {
       case 'animal_cost': return costData;
       case 'group_cost': return groupCostData;
       case 'weighing_pivot': return pivotData;
+      case 'gcaa_report': return gcaaDataFlattened;
+      case 'active_rations': return activeRationsData;
       default: return inventoryData;
     }
   };
@@ -375,6 +563,8 @@ const ReportsPage = () => {
             <option value="animal_cost">Hayvan Maliyet Raporu</option>
             <option value="group_cost">Grup Maliyet Raporu</option>
             <option value="weighing_pivot">Kilo Takip Raporu</option>
+            <option value="gcaa_report">Kilo Takip GCAA Raporu</option>
+            <option value="active_rations">Aktif Rasyon Raporu</option>
           </select>
         </div>
       </div>
@@ -389,7 +579,10 @@ const ReportsPage = () => {
             paginationSize: 20,
             movableColumns: true,
             placeholder: "Veri bulunamadı",
-            height: "100%"
+            height: "100%",
+            headerWordWrap: true,
+            tooltipsHeader: true,
+            headerSort: true
           }}
         />
       </div>

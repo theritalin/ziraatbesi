@@ -10,8 +10,9 @@ const CreateRationModal = ({ isOpen, onClose, onRationCreated, initialData = nul
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [groupId, setGroupId] = useState('');
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]); // Changed to array for multi-select
   const [groups, setGroups] = useState([]);
+  const [newGroupId, setNewGroupId] = useState(''); // For adding new groups
 
   useEffect(() => {
     if (isOpen) {
@@ -34,7 +35,8 @@ const CreateRationModal = ({ isOpen, onClose, onRationCreated, initialData = nul
         setSelectedFeeds(enrichedContent);
         setStartDate(initialData.start_date || '');
         setEndDate(initialData.end_date || '');
-        setGroupId(initialData.group_id?.toString() || '');
+        // Set selected group as array with single value for editing
+        setSelectedGroupIds(initialData.group_id ? [initialData.group_id] : []);
     } else if (isOpen && !initialData) {
         resetForm();
     }
@@ -45,7 +47,8 @@ const CreateRationModal = ({ isOpen, onClose, onRationCreated, initialData = nul
     setSelectedFeeds([]);
     setStartDate('');
     setEndDate('');
-    setGroupId('');
+    setSelectedGroupIds([]);
+    setNewGroupId('');
   };
 
   const fetchFeeds = async () => {
@@ -144,37 +147,56 @@ const CreateRationModal = ({ isOpen, onClose, onRationCreated, initialData = nul
             amount: f.amount
         }));
 
-        const rationData = {
-            farm_id: user.farm_id,
-            name: rationName,
-            content: rationContent,
-            start_date: startDate || null,
-            end_date: endDate || null,
-            group_id: groupId ? parseInt(groupId) : null
-        };
+        // If no groups selected, create one ration with null group_id
+        const groupsToProcess = selectedGroupIds.length > 0 ? selectedGroupIds : [null];
+
+        console.log('🔍 Groups to process:', groupsToProcess);
+        console.log('🔍 Selected group IDs:', selectedGroupIds);
 
         let error;
         if (initialData?.id) {
-            // Update
+            // Update existing ration
+            const rationData = {
+                farm_id: user.farm_id,
+                name: rationName,
+                content: rationContent,
+                start_date: startDate || null,
+                end_date: endDate || null,
+                group_id: groupsToProcess[0] // For update, use first group
+            };
+            
+            console.log('📝 Updating ration:', rationData);
+            
             const { error: updateError } = await supabase
                 .from('rations')
                 .update(rationData)
                 .eq('id', initialData.id);
             error = updateError;
         } else {
-            // Insert
+            // Insert new rations - one for each selected group
+            const rationsToInsert = groupsToProcess.map(groupId => ({
+                farm_id: user.farm_id,
+                name: rationName,
+                content: rationContent,
+                start_date: startDate || null,
+                end_date: endDate || null,
+                group_id: groupId
+            }));
+
+            console.log('📝 Inserting rations:', rationsToInsert);
+
             const { error: insertError } = await supabase
                 .from('rations')
-                .insert([rationData]);
+                .insert(rationsToInsert);
             error = insertError;
         }
 
         if (error) throw error;
         
         if (showToast) {
-          showToast(initialData?.id ? 'Rasyon başarıyla güncellendi!' : 'Rasyon başarıyla eklendi!');
+          showToast(initialData?.id ? 'Rasyon başarıyla güncellendi!' : `${groupsToProcess.length} rasyon başarıyla eklendi!`);
         } else {
-          alert(initialData?.id ? 'Rasyon başarıyla güncellendi!' : 'Rasyon başarıyla eklendi!');
+          alert(initialData?.id ? 'Rasyon başarıyla güncellendi!' : `${groupsToProcess.length} rasyon başarıyla eklendi!`);
         }
         onRationCreated();
         onClose();
@@ -215,16 +237,59 @@ const CreateRationModal = ({ isOpen, onClose, onRationCreated, initialData = nul
             />
             <div className="flex flex-col">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Besi Grubu (Opsiyonel)</label>
-                <select
-                    value={groupId}
-                    onChange={(e) => setGroupId(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                    <option value="">Grup Seçiniz...</option>
-                    {groups.map(g => (
-                        <option key={g} value={g}>Grup {g}</option>
-                    ))}
-                </select>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={newGroupId}
+                      onChange={(e) => setNewGroupId(e.target.value)}
+                      placeholder="Yeni Grup ID..."
+                      className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      min="1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = parseInt(newGroupId);
+                        if (id && !groups.includes(id)) {
+                          setGroups([...groups, id].sort((a, b) => a - b));
+                          setNewGroupId('');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      <FiPlus />
+                    </button>
+                  </div>
+                  <div className="border border-gray-300 rounded-lg p-2 max-h-32 overflow-y-auto">
+                    {groups.length === 0 ? (
+                      <p className="text-gray-400 text-sm text-center py-2">Henüz grup yok</p>
+                    ) : (
+                      groups.map(g => (
+                        <label key={g} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedGroupIds.includes(g)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedGroupIds([...selectedGroupIds, g]);
+                              } else {
+                                setSelectedGroupIds(selectedGroupIds.filter(id => id !== g));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-sm">Grup {g}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedGroupIds.length > 0 && (
+                    <p className="text-xs text-gray-600">
+                      Seçili: {selectedGroupIds.map(id => `Grup ${id}`).join(', ')}
+                    </p>
+                  )}
+                </div>
             </div>
              <Input 
                 label="Başlangıç Tarihi (Opsiyonel)"

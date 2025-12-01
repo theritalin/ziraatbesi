@@ -13,6 +13,7 @@ import Toast from '../components/UI/Toast';
 const AnimalsPage = () => {
   const { farmId, loading: loadingFarmId, fetchFarmId: refetchFarmId } = useFarmId();
   const [animals, setAnimals] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -51,11 +52,36 @@ const AnimalsPage = () => {
     }
   }, [farmId]);
 
+  const fetchGroups = useCallback(async () => {
+    if (!farmId) return;
+    
+    try {
+      // Get unique group_ids from animals table
+      const { data, error } = await supabase
+        .from('animals')
+        .select('group_id')
+        .eq('farm_id', farmId)
+        .not('group_id', 'is', null);
+
+      if (error) {
+        console.error('Error fetching groups:', error);
+      } else {
+        // Extract unique group_ids and create group objects
+        const uniqueGroupIds = [...new Set(data.map(a => a.group_id))].sort((a, b) => a - b);
+        const groupsData = uniqueGroupIds.map(id => ({ id, name: `Grup ${id}` }));
+        setGroups(groupsData);
+      }
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+    }
+  }, [farmId]);
+
   useEffect(() => {
     if (farmId) {
       fetchAnimals();
+      fetchGroups();
     }
-  }, [farmId, fetchAnimals]);
+  }, [farmId, fetchAnimals, fetchGroups]);
 
   useEffect(() => {
     let subscription;
@@ -190,24 +216,25 @@ const AnimalsPage = () => {
   const handleUpdateAnimal = useCallback(async (updatedAnimal) => {
     try {
       // Ensure group_id is a number or null, not an empty string
-      const groupId = updatedAnimal.group_id === '' || updatedAnimal.group_id === null 
+      const newGroupId = updatedAnimal.group_id === '' || updatedAnimal.group_id === null 
         ? null 
         : parseInt(updatedAnimal.group_id, 10);
 
-      if (updatedAnimal.group_id && isNaN(groupId)) {
+      if (updatedAnimal.group_id && isNaN(newGroupId)) {
          showToast('Geçersiz Besi Grubu. Lütfen sayı giriniz.', 'error');
          return;
       }
 
+      // Update the animal
       const { error } = await supabase
         .from('animals')
         .update({
           tag_number: updatedAnimal.tag_number,
           current_weight: updatedAnimal.current_weight,
           last_weight_kg: updatedAnimal.last_weight_kg,
-          birth_date: updatedAnimal.birth_date, // Using birth_date as Registration Date
+          birth_date: updatedAnimal.birth_date,
           purchase_price: updatedAnimal.purchase_price,
-          group_id: groupId,
+          group_id: newGroupId,
         })
         .eq('id', updatedAnimal.id);
 
@@ -217,7 +244,7 @@ const AnimalsPage = () => {
       showToast('Değişiklikler kaydedildi!');
     } catch (error) {
       console.error('Error updating animal:', error);
-      showToast('Güncelleme hatası: ' + error.message, 'error');
+      showToast('Güncelleme başarısız: ' + error.message, 'error');
     }
   }, []);
 
@@ -402,6 +429,7 @@ const AnimalsPage = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddAnimal}
+        groups={groups}
       />
 
       <EditAnimalModal
