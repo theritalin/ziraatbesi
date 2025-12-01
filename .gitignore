@@ -1,0 +1,42 @@
+# Genellikle tüm projelere özgü olanlar
+
+# Bağımlılıklar (Dependencies)
+# Projeyi kurarken 'npm install' veya 'yarn' ile tekrar indirilebilecek paketler
+/node_modules
+/jspm_packages
+
+# Derleme Çıktıları (Build Outputs)
+# Üretim için derlenen ve tekrar oluşturulabilen dosyalar
+/dist
+/build
+/out
+.next/ # Next.js için
+
+# Loglar
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.log
+
+# Ortam Değişkenleri (Environment Variables)
+# Gizli anahtarlar, parolalar veya API URL'leri içeren dosyalar
+# Bunları ASLA Git'e yüklememelisiniz!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editör ve IDE Ayarları
+# Her kullanıcının kendi yerel ayarlarıdır, projeye dahil edilmemelidir
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store # Mac işletim sistemi için
+
+# Supabase CLI İle İlgili Dosyalar
+# Supabase CLI yerel geliştirme için bunları kullanır.
+# Eğer bunları başka bir geliştirici ile paylaşmıyorsanız eklenmeyebilir.
+# Genellikle dışarıda bırakılmaları daha güvenlidir.
+/supabase/
