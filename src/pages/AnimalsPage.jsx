@@ -222,21 +222,37 @@ const AnimalsPage = () => {
   }, []);
 
   const handleDeleteAnimal = useCallback(async (id) => {
-    if (window.confirm('Bu hayvanı silmek istediğinizden emin misiniz?')) {
+    if (window.confirm('Bu hayvanı silmek istediğinizden emin misiniz? Bu işlem hayvanla ilgili tüm kayıtları (tartımlar, veteriner kayıtları) da silecektir.')) {
       try {
+        // First delete all related records
+        
+        // 1. Delete weighings
+        await supabase
+          .from('weighings')
+          .delete()
+          .eq('animal_id', id);
+
+        // 2. Delete veterinary records
+        await supabase
+          .from('veterinary_records')
+          .delete()
+          .eq('animal_id', id);
+
+        // 3. Finally delete the animal
         const { error } = await supabase
           .from('animals')
           .delete()
           .eq('id', id);
 
         if (error) throw error;
-        showToast('Hayvan silindi!');
+        showToast('Hayvan ve ilgili tüm kayıtlar silindi!');
+        fetchAnimals(); // Refresh the list
       } catch (error) {
         console.error('Error deleting animal:', error);
-        showToast('Silme işlemi başarısız oldu', 'error');
+        showToast('Silme işlemi başarısız oldu: ' + error.message, 'error');
       }
     }
-  }, []);
+  }, [fetchAnimals]);
 
   const columns = useMemo(() => [
     { 
