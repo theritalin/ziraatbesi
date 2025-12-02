@@ -181,20 +181,17 @@ const VeterinaryPage = () => {
       { title: "İşlem", field: "procedure_name", sorter: "string", headerFilter: "input" },
       { title: "Küpe No", field: "animals.tag_number", sorter: "string", headerFilter: "input" },
       { title: "Maliyet (TL)", field: "cost", sorter: "number", formatter: "money", formatterParams: { symbol: "₺", precision: 2 } },
-      { title: "Notlar", field: "notes", sorter: "string" }
-    ];
-
-    if (canEdit) {
-      cols.push({ 
+      { title: "Notlar", field: "notes", sorter: "string" },
+      ...(canEdit ? [{ 
         title: "İşlem", 
         field: "actions", 
-        formatter: (cell) => `<button class="text-red-600 hover:text-red-800"><i class="fi fi-trash"></i> Sil</button>`,
+        formatter: () => `<button class="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded">Sil</button>`,
         cellClick: (e, cell) => handleDelete(cell.getRow().getData().id),
         headerSort: false,
         width: 100,
         hozAlign: "center"
-      });
-    }
+      }] : [])
+    ];
 
     return cols;
   }, [canEdit]);
@@ -408,16 +405,21 @@ const VeterinaryPage = () => {
             <h2 className="text-lg font-semibold mb-4 text-gray-700">Son İşlemler</h2>
             <div className="flex-1 overflow-auto">
               {records.length > 0 ? (
-                <ReactTabulator
-                  data={records}
-                  columns={columns}
-                  layout="fitColumns"
-                  options={{
-                    pagination: "local",
-                    paginationSize: 10,
-                    placeholder: "Kayıt bulunamadı",
-                  }}
-                />
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <ReactTabulator
+                    key={canEdit ? 'edit' : 'view'}
+                    data={records}
+                    columns={columns}
+                    layout="fitColumns"
+                    options={{
+                      pagination: "local",
+                      paginationSize: 10,
+                      movableColumns: true,
+                      placeholder: "Kayıt bulunamadı",
+                      height: "100%"
+                    }}
+                  />
+                </div>
               ) : (
                 <div className="text-center text-gray-500 py-8">Henüz kayıt bulunmamaktadır.</div>
               )}

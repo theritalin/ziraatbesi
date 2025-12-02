@@ -8,10 +8,12 @@ import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/css/bootstrap/tabulator_bootstrap.min.css';
 
 const ExpensesPage = () => {
-  const { farmId } = useFarmId();
+  const { farmId, permissions, userRole } = useFarmId();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  const canEdit = userRole === 'admin' || permissions?.expenses === 'edit';
 
   // Form State
   const [category, setCategory] = useState('Market');
@@ -85,6 +87,10 @@ const ExpensesPage = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canEdit) {
+      showToast('Silme yetkiniz yok', 'error');
+      return;
+    }
     if (!window.confirm('Bu gider kaydını silmek istediğinize emin misiniz?')) return;
 
     try {
@@ -107,15 +113,15 @@ const ExpensesPage = () => {
     { title: "Kategori", field: "category", sorter: "string", headerFilter: "select", headerFilterParams: { values: categories } },
     { title: "Tutar (TL)", field: "amount", sorter: "number", formatter: "money", formatterParams: { symbol: "₺", precision: 2 } },
     { title: "Açıklama", field: "description", sorter: "string", headerFilter: "input" },
-    { 
+    ...(canEdit ? [{ 
       title: "İşlem", 
       field: "actions", 
-      formatter: (cell) => `<button class="text-red-600 hover:text-red-800"><i class="fi fi-trash"></i> Sil</button>`,
+      formatter: () => `<button class="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded">Sil</button>`,
       cellClick: (e, cell) => handleDelete(cell.getRow().getData().id),
       headerSort: false,
       width: 100,
       hozAlign: "center"
-    }
+    }] : [])
   ];
 
   return (
@@ -136,11 +142,12 @@ const ExpensesPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Section */}
-        <div className="lg:col-span-1">
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-700">Yeni Gider Ekle</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form Section - Only show if user has edit permission */}
+        {canEdit && (
+          <div className="lg:col-span-1">
+            <div className="bg-white shadow-md rounded-lg p-6">
+              <h2 className="text-lg font-semibold mb-4 text-gray-700">Yeni Gider Ekle</h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
@@ -199,9 +206,10 @@ const ExpensesPage = () => {
             </form>
           </div>
         </div>
+        )}
 
         {/* List Section */}
-        <div className="lg:col-span-2">
+        <div className={canEdit ? "lg:col-span-2" : "lg:col-span-3"}>
           <div className="bg-white shadow-md rounded-lg p-6 h-full flex flex-col">
             <h2 className="text-lg font-semibold mb-4 text-gray-700">Gider Listesi</h2>
             <div className="flex-1 overflow-auto">

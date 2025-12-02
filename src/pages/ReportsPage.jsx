@@ -5,6 +5,8 @@ import { supabase } from '../supabaseClient';
 import { ReactTabulator } from 'react-tabulator';
 import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/lib/css/tabulator.min.css';
+import AnimalProfileView from '../components/Reports/AnimalProfileView';
+import DailyVeterinaryView from '../components/Reports/DailyVeterinaryView';
 
 const moneyFormatter = (cell) => {
   if (!cell || !cell.getValue) return '-';
@@ -565,26 +567,42 @@ const ReportsPage = () => {
             <option value="weighing_pivot">Kilo Takip Raporu</option>
             <option value="gcaa_report">Kilo Takip GCAA Raporu</option>
             <option value="active_rations">Aktif Rasyon Raporu</option>
+            <option value="animal_profile">Hayvan Karnesi</option>
+            <option value="daily_veterinary">Günlük Veteriner Raporu</option>
           </select>
         </div>
       </div>
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden flex-1 flex flex-col p-4">
-        <ReactTabulator
-          data={getData()}
-          columns={getColumns()}
-          layout="fitColumns"
-          options={{
-            pagination: "local",
-            paginationSize: 20,
-            movableColumns: true,
-            placeholder: "Veri bulunamadı",
-            height: "100%",
-            headerWordWrap: true,
-            tooltipsHeader: true,
-            headerSort: true
-          }}
-        />
+        {reportType === 'animal_profile' ? (
+          <AnimalProfileView 
+            animals={animals}
+            weighings={weighings}
+            veterinaryRecords={veterinaryRecords}
+            costData={costData}
+          />
+        ) : reportType === 'daily_veterinary' ? (
+          <DailyVeterinaryView 
+            veterinaryRecords={veterinaryRecords}
+            animals={animals}
+          />
+        ) : (
+          <ReactTabulator
+            data={getData()}
+            columns={getColumns()}
+            layout="fitColumns"
+            options={{
+              pagination: "local",
+              paginationSize: 20,
+              movableColumns: true,
+              placeholder: "Veri bulunamadı",
+              height: "100%",
+              headerWordWrap: true,
+              tooltipsHeader: true,
+              headerSort: true
+            }}
+          />
+        )}
       </div>
     </div>
   );
