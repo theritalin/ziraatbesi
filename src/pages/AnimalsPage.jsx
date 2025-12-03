@@ -9,6 +9,7 @@ import AddAnimalModal from '../components/Animals/AddAnimalModal';
 import EditAnimalModal from '../components/Animals/EditAnimalModal';
 import { seedAnimals } from '../utils/seedAnimals';
 import Toast from '../components/UI/Toast';
+import ExcelImportModal from '../components/Animals/ExcelImportModal';
 
 const AnimalsPage = () => {
   const { farmId, loading: loadingFarmId, fetchFarmId: refetchFarmId } = useFarmId();
@@ -17,6 +18,7 @@ const AnimalsPage = () => {
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [toast, setToast] = useState(null);
   const tableRef = useRef(null);
@@ -375,6 +377,13 @@ const AnimalsPage = () => {
             Yeni Hayvan
           </button>
           <button 
+            onClick={() => setIsExcelModalOpen(true)}
+            className="flex-1 sm:flex-none justify-center items-center flex bg-green-50 text-green-700 border border-green-200 px-4 py-2 rounded-lg font-semibold hover:bg-green-100 transition-colors text-sm sm:text-base"
+          >
+            <FiDatabase className="mr-2" />
+            Excel'den Yükle
+          </button>
+          <button 
             onClick={fetchAnimals}
             className="flex-1 sm:flex-none justify-center items-center flex bg-gray-100 text-gray-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-base"
             title="Listeyi Yenile"
@@ -437,6 +446,16 @@ const AnimalsPage = () => {
         onClose={() => setIsEditModalOpen(false)}
         onUpdate={handleUpdateAnimal}
         animal={selectedAnimal}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onSuccess={(count) => {
+          showToast(`${count} hayvan başarıyla eklendi!`);
+          fetchAnimals();
+        }}
+        groups={groups}
       />
     </div>
   );

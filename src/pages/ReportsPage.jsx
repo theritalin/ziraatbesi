@@ -7,6 +7,7 @@ import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/lib/css/tabulator.min.css';
 import AnimalProfileView from '../components/Reports/AnimalProfileView';
 import DailyVeterinaryView from '../components/Reports/DailyVeterinaryView';
+import WeighingDayReportView from '../components/Reports/WeighingDayReportView';
 
 const moneyFormatter = (cell) => {
   if (!cell || !cell.getValue) return '-';
@@ -568,7 +569,9 @@ const ReportsPage = () => {
             <option value="gcaa_report">Kilo Takip GCAA Raporu</option>
             <option value="active_rations">Aktif Rasyon Raporu</option>
             <option value="animal_profile">Hayvan Karnesi</option>
+            <option value="animal_profile">Hayvan Karnesi</option>
             <option value="daily_veterinary">Günlük Veteriner Raporu</option>
+            <option value="weighing_day">Tartım Günü Raporu</option>
           </select>
         </div>
       </div>
@@ -585,6 +588,16 @@ const ReportsPage = () => {
           <DailyVeterinaryView 
             veterinaryRecords={veterinaryRecords}
             animals={animals}
+          />
+        ) : reportType === 'daily_veterinary' ? (
+          <DailyVeterinaryView 
+            veterinaryRecords={veterinaryRecords}
+            animals={animals}
+          />
+        ) : reportType === 'weighing_day' ? (
+          <WeighingDayReportView 
+            animals={animals}
+            weighings={weighings}
           />
         ) : (
           <ReactTabulator
