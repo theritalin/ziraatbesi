@@ -49,7 +49,9 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
   const [yieldPercentage, setYieldPercentage] = useState(58);
   const [customGcaa, setCustomGcaa] = useState(1.5);
   const [gcaaMode, setGcaaMode] = useState('custom'); // 'last' or 'custom'
-  
+  const [projectionTarget, setProjectionTarget] = useState('weight'); // 'weight' or 'date'
+  const [targetDateInput, setTargetDateInput] = useState(new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]);
+
   // Other expenses settings
   const [expenseMode, setExpenseMode] = useState('last'); // 'last' or 'custom'
   const [customMonthlyExpense, setCustomMonthlyExpense] = useState(0);
@@ -146,15 +148,37 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         // Select GCAA based on mode
         const selectedGcaa = gcaaMode === 'last' ? (lastGcaa > 0 ? lastGcaa : 0.001) : (customGcaa > 0 ? customGcaa : 0.001);
         
-        const weightToGain = Math.max(0, targetWeight - currentWeight);
-        const daysToTarget = weightToGain / selectedGcaa;
+        let daysToTarget = 0;
+        let finalWeight = currentWeight;
+        let targetDateObj = new Date();
+        let weightToGain = 0;
+
+        if (projectionTarget === 'weight') {
+             weightToGain = Math.max(0, targetWeight - currentWeight);
+             daysToTarget = weightToGain / selectedGcaa;
+             targetDateObj.setDate(targetDateObj.getDate() + Math.round(daysToTarget));
+             finalWeight = targetWeight;
+        } else {
+             // Date mode
+             const target = new Date(targetDateInput);
+             const today = new Date();
+             // Reset hours to compare dates properly
+             target.setHours(0,0,0,0);
+             today.setHours(0,0,0,0);
+             
+             const diffTime = target - today;
+             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+             daysToTarget = Math.max(0, diffDays);
+             
+             weightToGain = daysToTarget * selectedGcaa;
+             finalWeight = currentWeight + weightToGain;
+             targetDateObj = target;
+        }
+
         const costToTarget = daysToTarget * dailyTotalCost;
         const totalCostAtTarget = currentCost + costToTarget;
         
-        const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() + Math.round(daysToTarget));
-        
-        const futureCarcassValue = targetWeight * (yieldPercentage / 100) * carcassPrice;
+        const futureCarcassValue = finalWeight * (yieldPercentage / 100) * carcassPrice;
         const profit = futureCarcassValue - totalCostAtTarget;
 
         return {
@@ -166,13 +190,15 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
             current_cost: currentCost,
             gcaa: gcaaMode === 'last' ? lastGcaa : customGcaa,
             days_to_target: Math.round(daysToTarget),
-            target_date: targetDate.toLocaleDateString('tr-TR'),
+            target_date: targetDateObj.toLocaleDateString('tr-TR'),
+            final_weight: finalWeight,
             cost_to_target: costToTarget,
             future_carcass_value: futureCarcassValue,
             profit: profit,
         };
     });
-  }, [animals, weighings, costData, groupDailyCosts, selectedGroups, targetWeight, carcassPrice, yieldPercentage, customGcaa, gcaaMode, dailyOtherExpense]);
+
+  }, [animals, weighings, costData, groupDailyCosts, selectedGroups, targetWeight, carcassPrice, yieldPercentage, customGcaa, gcaaMode, dailyOtherExpense, projectionTarget, targetDateInput]);
 
   const stats = useMemo(() => {
     if (tableData.length === 0) return { count: 0, avgProfit: 0, totalProfit: 0 };
@@ -255,6 +281,16 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         }
     },
     { 
+        title: "Tahmini Son Kilo", 
+        field: "final_weight", 
+        sorter: "number", 
+        width: 130, 
+        formatter: numberFormatter,
+        resizable: true,
+        bottomCalc: "avg",
+        bottomCalcFormatter: numberCalcFormatter
+    },
+    { 
         title: "Bitiş Tarihi", 
         field: "target_date", 
         sorter: "string", 
@@ -304,6 +340,33 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
     <div className="flex flex-col h-full gap-4">
       {/* Controls */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+        {/* Projection Target Selection */}
+        <div className="flex items-center gap-6 pb-3 border-b border-gray-300">
+            <span className="text-sm font-semibold text-gray-700">Hesaplama Hedefi:</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                    type="radio" 
+                    name="projectionTarget" 
+                    value="weight" 
+                    checked={projectionTarget === 'weight'}
+                    onChange={() => setProjectionTarget('weight')}
+                    className="w-4 h-4 text-purple-600"
+                />
+                <span className="text-sm">Hedef Ağırlık</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                    type="radio" 
+                    name="projectionTarget" 
+                    value="date" 
+                    checked={projectionTarget === 'date'}
+                    onChange={() => setProjectionTarget('date')}
+                    className="w-4 h-4 text-purple-600"
+                />
+                <span className="text-sm">Hedef Tarih</span>
+            </label>
+        </div>
+
         {/* GCAA Mode Selection */}
         <div className="flex items-center gap-6 pb-3 border-b border-gray-300">
             <span className="text-sm font-semibold text-gray-700">Hesaplama Yöntemi:</span>
@@ -406,13 +469,27 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         {/* Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Hedef Ağırlık (kg)</label>
-                <input 
-                    type="number" 
-                    value={targetWeight} 
-                    onChange={e => setTargetWeight(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border rounded-md text-sm"
-                />
+                {projectionTarget === 'weight' ? (
+                    <>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Hedef Ağırlık (kg)</label>
+                        <input 
+                            type="number" 
+                            value={targetWeight} 
+                            onChange={e => setTargetWeight(parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border rounded-md text-sm"
+                        />
+                    </>
+                ) : (
+                    <>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Hedef Tarih</label>
+                        <input 
+                            type="date" 
+                            value={targetDateInput} 
+                            onChange={e => setTargetDateInput(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-md text-sm"
+                        />
+                    </>
+                )}
             </div>
             <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Karkas Fiyatı (TL/kg)</label>
