@@ -12,6 +12,7 @@ const WeighingDayReportView = ({ animals, weighings }) => {
   }, [weighings]);
 
   const [selectedDate, setSelectedDate] = useState('');
+  const [selectedRows, setSelectedRows] = useState([]); // Selected rows state
 
   // Set default date to the latest one when available
   useEffect(() => {
@@ -19,6 +20,11 @@ const WeighingDayReportView = ({ animals, weighings }) => {
       setSelectedDate(availableDates[0]);
     }
   }, [availableDates, selectedDate]);
+
+  // Reset selection when date changes
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [selectedDate]);
 
   // 2. Calculate Data for Selected Date
   const reportData = useMemo(() => {
@@ -101,28 +107,33 @@ const WeighingDayReportView = ({ animals, weighings }) => {
 
   // 3. Summary Statistics
   const summary = useMemo(() => {
-    if (reportData.length === 0) return { count: 0, avgWeight: 0, avgGain: 0, avgGcaa: 0 };
+    // Use selected rows if any, otherwise use all rows
+    const dataToUse = selectedRows.length > 0 ? selectedRows : reportData;
 
-    const count = reportData.length;
-    const totalWeight = reportData.reduce((sum, item) => sum + (parseFloat(item.current_weight) || 0), 0);
+    if (dataToUse.length === 0) return { count: 0, avgWeight: 0, avgGain: 0, avgGcaa: 0 };
+
+    const count = dataToUse.length;
+    const totalWeight = dataToUse.reduce((sum, item) => sum + (parseFloat(item.current_weight) || 0), 0);
     
     // Only count items that have valid gain/gcaa for averages
-    const gainItems = reportData.filter(item => item.weight_gain !== '-');
+    const gainItems = dataToUse.filter(item => item.weight_gain !== '-');
     const totalGain = gainItems.reduce((sum, item) => sum + (parseFloat(item.weight_gain) || 0), 0);
     
-    const gcaaItems = reportData.filter(item => item.period_gcaa !== '-');
+    const gcaaItems = dataToUse.filter(item => item.period_gcaa !== '-');
     const totalGcaa = gcaaItems.reduce((sum, item) => sum + (parseFloat(item.period_gcaa) || 0), 0);
 
     return {
       count,
       avgWeight: (totalWeight / count).toFixed(2),
       avgGain: gainItems.length > 0 ? (totalGain / gainItems.length).toFixed(2) : '0.00',
-      avgGcaa: gcaaItems.length > 0 ? (totalGcaa / gcaaItems.length).toFixed(3) : '0.000'
+      avgGcaa: gcaaItems.length > 0 ? (totalGcaa / gcaaItems.length).toFixed(3) : '0.000',
+      isFiltered: selectedRows.length > 0
     };
-  }, [reportData]);
+  }, [reportData, selectedRows]);
 
   // 4. Columns
   const columns = [
+    { formatter: "rowSelection", titleFormatter: "rowSelection", align: "center", headerSort: false, width: 40 }, // Selection column
     { title: "Küpe No", field: "tag_number", sorter: "string", headerFilter: "input", widthGrow: 1.5 },
     { title: "Tartım Kilosu", field: "current_weight", sorter: "number", widthGrow: 1 },
     { title: "Önceki Tarih", field: "prev_date", sorter: "string", widthGrow: 1.2 },
@@ -149,6 +160,19 @@ const WeighingDayReportView = ({ animals, weighings }) => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Tabulator Options for Selection
+  const options = {
+    pagination: "local",
+    paginationSize: 20,
+    movableColumns: true,
+    placeholder: "Veri bulunamadı",
+    height: "100%",
+    headerWordWrap: true,
+    tooltipsHeader: true,
+    headerSort: true,
+    selectable: true, // Enable selection
   };
 
   return (
@@ -190,19 +214,27 @@ const WeighingDayReportView = ({ animals, weighings }) => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <p className="text-sm text-blue-600 font-medium">Toplam Hayvan</p>
+          <p className="text-sm text-blue-600 font-medium">
+            {summary.isFiltered ? 'Seçilen Hayvan' : 'Toplam Hayvan'}
+          </p>
           <p className="text-2xl font-bold text-blue-800">{summary.count}</p>
         </div>
         <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-          <p className="text-sm text-green-600 font-medium">Ortalama Kilo</p>
+          <p className="text-sm text-green-600 font-medium">
+            {summary.isFiltered ? 'Ortalama Kilo (Seçilen)' : 'Ortalama Kilo'}
+          </p>
           <p className="text-2xl font-bold text-green-800">{summary.avgWeight} kg</p>
         </div>
         <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-          <p className="text-sm text-purple-600 font-medium">Ortalama Artış</p>
+          <p className="text-sm text-purple-600 font-medium">
+             {summary.isFiltered ? 'Ortalama Artış (Seçilen)' : 'Ortalama Artış'}
+          </p>
           <p className="text-2xl font-bold text-purple-800">{summary.avgGain} kg</p>
         </div>
         <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-          <p className="text-sm text-orange-600 font-medium">Ortalama GCAA</p>
+          <p className="text-sm text-orange-600 font-medium">
+             {summary.isFiltered ? 'Ortalama GCAA (Seçilen)' : 'Ortalama GCAA'}
+          </p>
           <p className="text-2xl font-bold text-orange-800">{summary.avgGcaa}</p>
         </div>
       </div>
@@ -214,15 +246,11 @@ const WeighingDayReportView = ({ animals, weighings }) => {
             data={reportData}
             columns={columns}
             layout="fitColumns"
-            options={{
-                pagination: "local",
-                paginationSize: 20,
-                movableColumns: true,
-                placeholder: "Veri bulunamadı",
-                height: "100%",
-                headerWordWrap: true,
-                tooltipsHeader: true,
-                headerSort: true
+            options={options}
+            events={{
+              rowSelectionChanged: (data, rows) => {
+                setSelectedRows(data);
+              }
             }}
             />
         ) : (

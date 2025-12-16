@@ -119,6 +119,10 @@ to-do
 
 [x ] rasyon ve stok ekranında silerken ekran yenilenmiyor.
 
-[ ] excel entegrasyonu
+[x ] excel entegrasyonu
 
-tarih projeksiyon raporu ekle. belirtilen tarihte seçilen hayvanlar kullanıcının girdiği gcaa ya göre ve kullanıcıdan istenen diğer giderlere göre kaç kilo olacaklar, girilen randıman ve karkas fiyatına göre ne kadar kar ettirecek bunları hesapla. projeksiyon raporu ekranına tarih ekleyerek ve kullanıcıdan kilo hesabı mı tarih hesabı diye seçtirerek o ekran üzerinde yaptır bunu.
+[x ] tarih projeksiyon raporu ekle. belirtilen tarihte seçilen hayvanlar kullanıcının girdiği gcaa ya göre ve kullanıcıdan istenen diğer giderlere göre kaç kilo olacaklar, girilen randıman ve karkas fiyatına göre ne kadar kar ettirecek bunları hesapla. projeksiyon raporu ekranına tarih ekleyerek ve kullanıcıdan kilo hesabı mı tarih hesabı diye seçtirerek o ekran üzerinde yaptır bunu.
+
+[ x ] tartım günü raporuna filtreleme ekle. şöyle; tartılan hayvanların ortalam kilo, toplam gcaa ve ortalama gcaa sı hesaplanıyor zaten. tartılan hayvanları tek tek seçtir ve sadece seçilenlerin hesaplamasını yaptır
+
+[ x] kayıt ol ekranında hata veriyr. özellikle maile tıklayınca localhoste yönlendiriyor.

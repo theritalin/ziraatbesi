@@ -26,8 +26,11 @@ const CreateFarmPage = () => {
       } else if (farm) {
         const { error: userError } = await supabase
           .from('users')
-          .update({ farm_id: farm[0].id })
-          .eq('id', user.id);
+          .upsert({ 
+            id: user.id, 
+            farm_id: farm[0].id,
+            email: user.email 
+          });
 
         if (userError) {
           setMessage(userError.message);
