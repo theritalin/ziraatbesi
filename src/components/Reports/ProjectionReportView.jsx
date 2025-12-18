@@ -217,7 +217,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 120, 
         headerFilter: "input", 
         frozen: true,
-        resizable: true
+          resizable: true,
+        
     },
     { 
         title: "Grup", 
@@ -243,7 +244,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 130,
         resizable: true,
         bottomCalc: "avg",
-        bottomCalcFormatter: moneyCalcFormatter
+        bottomCalcFormatter: moneyCalcFormatter,
+        
     },
     { 
         title: "Şu Anki Maliyet", 
@@ -253,7 +255,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 140,
         resizable: true,
         bottomCalc: "sum",
-        bottomCalcFormatter: moneyCalcFormatter
+        bottomCalcFormatter: moneyCalcFormatter,
+       
     },
     { 
         title: gcaaMode === 'last' ? "Son GCAA" : "GCAA", 
@@ -263,7 +266,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 100,
         resizable: true,
         bottomCalc: "avg",
-        bottomCalcFormatter: numberCalcFormatter
+        bottomCalcFormatter: numberCalcFormatter,
+       
     },
     { 
         title: "Kalan Gün", 
@@ -288,7 +292,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         formatter: numberFormatter,
         resizable: true,
         bottomCalc: "avg",
-        bottomCalcFormatter: numberCalcFormatter
+        bottomCalcFormatter: numberCalcFormatter,
+       
     },
     { 
         title: "Bitiş Tarihi", 
@@ -296,7 +301,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         sorter: "string", 
         width: 110, 
         formatter: dateFormatter,
-        resizable: true
+        resizable: true,
+        
     },
     { 
         title: "Ek Masraf", 
@@ -316,7 +322,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 130,
         resizable: true,
         bottomCalc: "sum",
-        bottomCalcFormatter: moneyCalcFormatter
+        bottomCalcFormatter: moneyCalcFormatter,
+        
     },
     { 
         title: "Kar", 
@@ -326,7 +333,8 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         width: 120,
         resizable: true,
         bottomCalc: "sum", 
-        bottomCalcFormatter: moneyCalcFormatter
+        bottomCalcFormatter: moneyCalcFormatter,
+       
     },
   ], [gcaaMode]);
 
@@ -537,12 +545,14 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
         <ReactTabulator
             data={tableData}
             columns={columns}
-            layout="fitData"
-            options={{
+            layout="fitColumns"
+                options={{
+                 
                 pagination: "local",
                 paginationSize: 50,
                 placeholder: "Kriterlere uygun veri bulunamadı.",
                 height: "100%",
+                layout:"fitDataFill",
                 resizableColumns: true,
             }}
         />

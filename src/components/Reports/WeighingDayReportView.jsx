@@ -134,11 +134,11 @@ const WeighingDayReportView = ({ animals, weighings }) => {
   // 4. Columns
   const columns = [
     { formatter: "rowSelection", titleFormatter: "rowSelection", align: "center", headerSort: false, width: 40 }, // Selection column
-    { title: "Küpe No", field: "tag_number", sorter: "string", headerFilter: "input", widthGrow: 1.5 },
+    { title: "Küpe No", field: "tag_number", sorter: "string", headerFilter: "input", widthGrow: 1.5},
     { title: "Tartım Kilosu", field: "current_weight", sorter: "number", widthGrow: 1 },
-    { title: "Önceki Tarih", field: "prev_date", sorter: "string", widthGrow: 1.2 },
+    { title: "Önceki Tarih", field: "prev_date", sorter: "string", widthGrow: 1.2},
     { title: "Önceki Kilo", field: "prev_weight", sorter: "number", widthGrow: 1 },
-    { title: "Gün Farkı", field: "days_diff", sorter: "number", widthGrow: 0.8 },
+    { title: "Gün Farkı", field: "days_diff", sorter: "number", widthGrow: 0.8},
     { title: "Kilo Artışı", field: "weight_gain", sorter: "number", widthGrow: 1, formatter: (cell) => {
         const val = cell.getValue();
         if(val === '-') return '-';
@@ -172,6 +172,8 @@ const WeighingDayReportView = ({ animals, weighings }) => {
     headerWordWrap: true,
     tooltipsHeader: true,
     headerSort: true,
+        layout:"fitDataFill",
+
     selectable: true, // Enable selection
   };
 

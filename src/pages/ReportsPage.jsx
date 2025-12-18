@@ -401,21 +401,21 @@ const ReportsPage = () => {
   }, [gcaaData]);
 
   const columnsGCAA = [
-    { title: "Küpe No", field: "tag_number", sorter: "string", widthGrow: 2 },
-    { title: "Dönem", field: "period_number", sorter: "number", widthGrow: 1 },
-    { title: "Tarih Aralığı", field: "period", sorter: "string", widthGrow: 3 },
-    { title: "Gün Sayısı", field: "days", sorter: "number", widthGrow: 1 },
-    { title: "Başlangıç Kilosu (kg)", field: "start_weight", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
-    { title: "Bitiş Kilosu (kg)", field: "end_weight", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
-    { title: "Toplam Alım (kg)", field: "total_gain", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(2) },
-    { title: "GCAA (kg/gün)", field: "gcaa", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(3), 
+    { title: "Küpe No", field: "tag_number", sorter: "string", widthGrow: 2,resizable: true},
+    { title: "Dönem", field: "period_number", sorter: "number", widthGrow: 1 ,resizable: true},
+    { title: "Tarih Aralığı", field: "period", sorter: "string", widthGrow: 3,resizable: true },
+    { title: "Gün Sayısı", field: "days", sorter: "number", widthGrow: 1, resizable: true },
+    { title: "Başlangıç Kilosu (kg)", field: "start_weight", sorter: "number", widthGrow: 2,resizable: true, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "Bitiş Kilosu (kg)", field: "end_weight", sorter: "number", widthGrow: 2,resizable: true, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "Toplam Alım (kg)", field: "total_gain", sorter: "number", widthGrow: 2,resizable: true, formatter: (cell) => cell.getValue()?.toFixed(2) },
+    { title: "GCAA (kg/gün)", field: "gcaa", sorter: "number", widthGrow: 2,resizable: true, formatter: (cell) => cell.getValue()?.toFixed(3), 
       cellClick: (e, cell) => {
         const gcaa = cell.getValue();
         if (gcaa > 1.2) cell.getElement().style.backgroundColor = "#d4edda";
         else if (gcaa < 0.8) cell.getElement().style.backgroundColor = "#f8d7da";
       }
     },
-    { title: "Ortalama GCAA", field: "average_gcaa", sorter: "number", widthGrow: 2, formatter: (cell) => cell.getValue()?.toFixed(3) }
+    { title: "Ortalama GCAA", field: "average_gcaa", sorter: "number", widthGrow: 2,resizable: true ,formatter: (cell) => cell.getValue()?.toFixed(3) }
   ];
 
   // Active Rations Report Data - Pivot format (Feeds x Groups)
@@ -502,6 +502,7 @@ const ReportsPage = () => {
         widthGrow: 1,
         minWidth: 80,
         headerTooltip: `Grup ${groupId}`,
+        
         formatter: (cell) => cell.getValue()?.toFixed(2) || '0.00'
       });
     });
@@ -614,16 +615,22 @@ const ReportsPage = () => {
           <ReactTabulator
             data={getData()}
             columns={getColumns()}
+            
             layout="fitColumns"
-            options={{
-              pagination: "local",
+            
+                      options={{ 
+                        pagination: "local",
+                        
               paginationSize: 20,
               movableColumns: true,
               placeholder: "Veri bulunamadı",
               height: "100%",
               headerWordWrap: true,
               tooltipsHeader: true,
-              headerSort: true
+              headerSort: true,
+               layout:"fitDataFill",
+              resizableColumnFit:true,
+
             }}
           />
         )}
