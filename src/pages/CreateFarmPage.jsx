@@ -8,6 +8,11 @@ const CreateFarmPage = () => {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
   const handleCreateFarm = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -66,6 +71,15 @@ const CreateFarmPage = () => {
             {loading ? 'Creating...' : 'Create Farm'}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full mt-4 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-colors duration-300"
+        >
+          Logout
+        </button>
+
         {message && <p className="mt-4 text-center text-red-500">{message}</p>}
       </div>
     </div>

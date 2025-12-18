@@ -8,6 +8,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check initial session
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -15,6 +16,17 @@ const LoginPage = () => {
       }
     };
     checkSession();
+
+    // Listen for auth changes (important for email verification redirect)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || session) {
+        navigate('/dashboard');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (

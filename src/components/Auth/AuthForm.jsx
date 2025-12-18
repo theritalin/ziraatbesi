@@ -28,7 +28,13 @@ const AuthForm = ({ type }) => {
     const { data, error } =
       type === 'login'
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        : await supabase.auth.signUp({ 
+            email, 
+            password,
+            options: {
+              emailRedirectTo: window.location.origin
+            }
+          });
 
     if (error) {
       setMessage({ type: 'error', content: error.message });

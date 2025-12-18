@@ -143,7 +143,7 @@ const DashboardPage = ({ session }) => {
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-2xl font-bold text-green-600 flex items-center">
               <FiBox className="mr-2" />
-              Ziraat Besi 1.1
+              Ziraat Besi 1.2
             </h2>
           </div>
 
