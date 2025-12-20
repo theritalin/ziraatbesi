@@ -621,7 +621,7 @@ const ReportsPage = () => {
                       options={{ 
                         pagination: "local",
                         
-              paginationSize: 20,
+              paginationSize: 50,
               movableColumns: true,
               placeholder: "Veri bulunamadı",
               height: "100%",

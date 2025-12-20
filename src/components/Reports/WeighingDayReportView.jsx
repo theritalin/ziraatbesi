@@ -165,7 +165,7 @@ const WeighingDayReportView = ({ animals, weighings }) => {
   // Tabulator Options for Selection
   const options = {
     pagination: "local",
-    paginationSize: 20,
+    paginationSize: 50,
     movableColumns: true,
     placeholder: "Veri bulunamadı",
     height: "100%",
