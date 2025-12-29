@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFarmId } from '../hooks/useFarmId';
-import { FiPlus, FiTrash2, FiEdit2, FiDatabase, FiRefreshCw } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiDatabase, FiRefreshCw, FiPower, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '../supabaseClient';
 import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/lib/css/tabulator.min.css';
@@ -10,6 +10,7 @@ import EditAnimalModal from '../components/Animals/EditAnimalModal';
 import { seedAnimals } from '../utils/seedAnimals';
 import Toast from '../components/UI/Toast';
 import ExcelImportModal from '../components/Animals/ExcelImportModal';
+import PassiveModal from '../components/Animals/PassiveModal';
 
 const AnimalsPage = () => {
   const { farmId, loading: loadingFarmId, fetchFarmId: refetchFarmId } = useFarmId();
@@ -19,8 +20,10 @@ const AnimalsPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isPassiveModalOpen, setIsPassiveModalOpen] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showPassives, setShowPassives] = useState(false);
   const tableRef = useRef(null);
 
   const showToast = (message, type = 'success') => {
@@ -201,6 +204,7 @@ const AnimalsPage = () => {
           .from('animals')
           .insert([{
             farm_id: user.farm_id,
+            status: 'active', // Default status
             ...newAnimal
           }]);
 
@@ -283,7 +287,68 @@ const AnimalsPage = () => {
     }
   }, [fetchAnimals]);
 
+  const handlePassiveClick = (animal) => {
+    setSelectedAnimal(animal);
+    setIsPassiveModalOpen(true);
+  };
+
+  const handleConfirmPassive = async (animal, date) => {
+    try {
+      const { error } = await supabase
+        .from('animals')
+        .update({
+          status: 'passive',
+          passive_date: date
+        })
+        .eq('id', animal.id);
+
+      if (error) throw error;
+
+      showToast('Hayvan pasife alındı!');
+      setIsPassiveModalOpen(false);
+      fetchAnimals();
+    } catch (error) {
+      console.error('Error setting animal passive:', error);
+      showToast('İşlem başarısız: ' + error.message, 'error');
+    }
+  };
+
+  const handleActivate = async (animal) => {
+    if (!window.confirm('Bu hayvanı tekrar aktif yapmak istediğinizden emin misiniz?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('animals')
+        .update({
+          status: 'active',
+          passive_date: null
+        })
+        .eq('id', animal.id);
+
+      if (error) throw error;
+
+      showToast('Hayvan tekrar aktif edildi!');
+      fetchAnimals();
+    } catch (error) {
+      console.error('Error activating animal:', error);
+      showToast('İşlem başarısız: ' + error.message, 'error');
+    }
+  };
+
   const columns = useMemo(() => [
+    { 
+      title: "Durum", 
+      field: "status", 
+      formatter: (cell) => {
+        const value = cell.getValue();
+        if (value === 'passive') {
+          return `<span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs font-semibold">Pasif</span>`;
+        }
+        return `<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">Aktif</span>`;
+      },
+      hozAlign: "center",
+      width: 90
+    },
     { 
       title: "Küpe No", 
       field: "tag_number", 
@@ -297,10 +362,17 @@ const AnimalsPage = () => {
       title: "Kayıt Tarihi", 
       field: "birth_date", 
       sorter: "string", 
-      headerFilter: "input",
+      headerFilter: "input", 
       widthGrow: 1,
       editor: "input",
       cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+    },
+    {
+      title: "Pasif Tarihi",
+      field: "passive_date",
+      sorter: "string",
+      widthGrow: 1,
+      editable: false
     },
     { 
       title: "Alış Fiyatı (TL)", 
@@ -341,14 +413,29 @@ const AnimalsPage = () => {
     { 
       title: "Aksiyonlar", 
       formatter: (cell) => {
-        return `<button class='bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600'>Sil</button>`;
+        const data = cell.getRow().getData();
+        const deleteButton = `<button class='bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 ml-1'>Sil</button>`;
+        
+        if (data.status === 'passive') {
+          return `<button class='bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600'>Aktif Et</button>` + deleteButton;
+        }
+        return `<button class='bg-orange-500 text-white px-2 py-1 rounded text-xs hover:bg-orange-600'>Pasif</button>` + deleteButton;
       }, 
-      width: 80, 
+      width: 140, 
       hozAlign: "center", 
       headerSort: false,
       cellClick: (e, cell) => {
         e.stopPropagation();
-        handleDeleteAnimal(cell.getRow().getData().id);
+        const target = e.target;
+        const data = cell.getRow().getData();
+
+        if (target.innerHTML === 'Sil') {
+           handleDeleteAnimal(data.id);
+        } else if (target.innerHTML === 'Pasif') {
+           handlePassiveClick(data);
+        } else if (target.innerHTML === 'Aktif Et') {
+           handleActivate(data);
+        }
       }
     }
   ], [handleDeleteAnimal, handleUpdateAnimal]);
@@ -391,20 +478,18 @@ const AnimalsPage = () => {
             <FiRefreshCw className="mr-2" />
             Yenile
           </button>
-          {/* <button 
-            onClick={handleDebugConnection}
-            className="flex-1 sm:flex-none justify-center items-center flex bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors text-sm sm:text-base"
-          >
-            Bağlantı Kontrolü
-          </button> */}
-          {/* <button 
-            onClick={handleSeedData}
-            className="flex-1 sm:flex-none justify-center items-center flex bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm sm:text-base"
-          >
-            <FiDatabase className="mr-2" />
-            Örnek Veri
-          </button> */}
-   
+          <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+            <input
+              type="checkbox"
+              id="showPassives"
+              checked={showPassives}
+              onChange={(e) => setShowPassives(e.target.checked)}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+            />
+            <label htmlFor="showPassives" className="ml-2 block text-sm text-gray-900 select-none cursor-pointer">
+              Pasifleri Göster
+            </label>
+          </div>
         </div>
       </div>
 
@@ -414,10 +499,10 @@ const AnimalsPage = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
           </div>
         ) : (
-          <div className="flex-1 w-full overflow-hidden">
+            <div className="flex-1 w-full overflow-hidden">
              <ReactTabulator
               onRef={(r) => (tableRef.current = r)}
-              data={animals}
+              data={showPassives ? animals : animals.filter(a => a.status !== 'passive')}
               columns={columns}
               layout={"fitColumns"}
               options={{
@@ -427,6 +512,7 @@ const AnimalsPage = () => {
                 resizableRows: true,
                 responsiveLayout: "collapse",
                 height: "100%",
+                placeholder: "Veri yok"
               }}
               className="h-full w-full"
             />
@@ -456,6 +542,13 @@ const AnimalsPage = () => {
           fetchAnimals();
         }}
         groups={groups}
+      />
+      
+      <PassiveModal
+        isOpen={isPassiveModalOpen}
+        onClose={() => setIsPassiveModalOpen(false)}
+        onConfirm={handleConfirmPassive}
+        animal={selectedAnimal}
       />
     </div>
   );

@@ -21,6 +21,7 @@ export const calculateDailyConsumption = (ration, animalCount) => {
 /**
  * Restores stock when a ration is deleted.
  * Calculates consumption from start_date to today (or end_date) and adds it back to feeds.
+ * Now respects animal active/passive status day-by-day.
  * @param {object} ration - The ration to be deleted.
  */
 export const restoreRationStock = async (ration) => {
@@ -30,28 +31,55 @@ export const restoreRationStock = async (ration) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Get animal count (approximate, using current count)
-    // ideally we would need historical count, but for MVP current count is acceptable approximation
-    const { count, error: countError } = await supabase
+    // Fetch all animals for this group to calculate accurate history
+    const { data: animals, error: animalsError } = await supabase
         .from('animals')
-        .select('*', { count: 'exact', head: true })
+        .select('id, birth_date, status, passive_date')
         .eq('group_id', ration.group_id);
 
-    if (countError || !count) return;
+    if (animalsError || !animals) return;
 
     const start = new Date(ration.start_date);
     const end = ration.end_date ? new Date(ration.end_date) : new Date();
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Cap end date at today if ration is still active
+    const today = new Date();
+    const actualEnd = end > today ? today : end;
+    
+    // Iterate day by day
+    const currentDate = new Date(start);
+    const consumptionTotals = {}; // feed_id -> total amount
 
-    if (diffDays <= 0) return;
+    while (currentDate <= actualEnd) {
+        // Count valid animals for this day
+        const dayStr = currentDate.toISOString().split('T')[0];
+        const dayTime = currentDate.getTime();
 
-    const consumption = calculateDailyConsumption(ration, count);
+        const validCount = animals.filter(animal => {
+            const birthDate = new Date(animal.birth_date).getTime();
+            if (birthDate > dayTime) return false; // Born after this day
+            
+            if (animal.status === 'passive') {
+                const passiveDate = new Date(animal.passive_date).getTime();
+                // If passive_date is BEFORE or ON this day, don't count?
+                // Req: "o tarih itibari ile ... hesaplama yapılmasın" -> If passive date is Today, stop.
+                // So if passiveDate <= dayTime, return false.
+                if (animal.passive_date && passiveDate <= dayTime) return false;
+            }
+            return true;
+        }).length;
+
+        if (validCount > 0) {
+            const daily = calculateDailyConsumption(ration, validCount);
+            for (const [feedId, amount] of Object.entries(daily)) {
+                consumptionTotals[feedId] = (consumptionTotals[feedId] || 0) + amount;
+            }
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
 
     // Restore stock
-    for (const [feedId, amount] of Object.entries(consumption)) {
-        const totalRestoration = amount * diffDays;
-        
+    for (const [feedId, totalAmount] of Object.entries(consumptionTotals)) {
         const { data: currentFeed } = await supabase
             .from('feeds')
             .select('current_stock_kg')
@@ -61,11 +89,11 @@ export const restoreRationStock = async (ration) => {
         if (currentFeed) {
             await supabase
                 .from('feeds')
-                .update({ current_stock_kg: currentFeed.current_stock_kg + totalRestoration })
+                .update({ current_stock_kg: currentFeed.current_stock_kg + totalAmount })
                 .eq('id', feedId);
         }
     }
-    console.log(`Restored stock for ration ${ration.name}: ${diffDays} days`);
+    console.log(`Restored stock for ration ${ration.name}`);
 
   } catch (error) {
     console.error('Error restoring ration stock:', error);
@@ -117,12 +145,24 @@ export const processDailyConsumption = async (farmId) => {
 
         if (!rations || rations.length === 0) return;
 
+        // Fetch ALL animals for the farm once to optimize
+        const { data: allAnimals, error: animalsError } = await supabase
+            .from('animals')
+            .select('id, group_id, birth_date, status, passive_date')
+            .eq('farm_id', farmId);
+
+        if (animalsError) {
+             console.error('Error fetching animals for consumption:', animalsError);
+             return;
+        }
+
         // 3. Loop through missing days
         const nextDate = new Date(lastDate);
         nextDate.setDate(nextDate.getDate() + 1);
 
         while (nextDate <= today) {
             console.log('Processing daily consumption for:', nextDate.toISOString().split('T')[0]);
+            const dayTime = nextDate.getTime();
             
             let dailyTotalCost = 0;
             const dailyFeedConsumption = {}; // feed_id -> amount
@@ -132,18 +172,25 @@ export const processDailyConsumption = async (farmId) => {
                 if (ration.start_date && new Date(ration.start_date) > nextDate) continue;
 
                 if (ration.group_id) {
-                     const { count } = await supabase
-                        .from('animals')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('group_id', ration.group_id);
+                    // Filter animals for this group and date
+                    const validCount = allAnimals.filter(a => {
+                        if (a.group_id !== ration.group_id) return false;
+                        
+                        const birthDate = new Date(a.birth_date).getTime();
+                        if (birthDate > dayTime) return false;
+
+                        if (a.status === 'passive') {
+                             const passiveDate = new Date(a.passive_date).getTime();
+                             // If passive date is <= current day, exclude
+                             if (a.passive_date && passiveDate <= dayTime) return false;
+                        }
+                        return true;
+                    }).length;
                     
-                    if (count > 0) {
-                        const consumption = calculateDailyConsumption(ration, count);
+                    if (validCount > 0) {
+                        const consumption = calculateDailyConsumption(ration, validCount);
                         for (const [feedId, amount] of Object.entries(consumption)) {
                             dailyFeedConsumption[feedId] = (dailyFeedConsumption[feedId] || 0) + amount;
-                            
-                            // Calculate cost (need feed price)
-                            // Optimization: Fetch feeds once outside loop
                         }
                     }
                 }

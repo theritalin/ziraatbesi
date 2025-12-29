@@ -33,10 +33,11 @@ const OverviewPage = () => {
         return;
       }
 
-      // 1. Total animal count
+      // 1. Total animal count (Active Only)
       const { count: totalAnimals, error: animalsCountError } = await supabase
         .from('animals')
         .select('*', { count: 'exact', head: true })
+        .eq('status', 'active') // Only count active animals
         .eq('farm_id', farmId);
 
       if (animalsCountError) {
@@ -264,7 +265,7 @@ const OverviewPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <StatCard 
           icon={FiUsers}
-          title="Toplam Hayvan Sayısı"
+          title="Aktif Hayvan Sayısı"
           value={stats.totalAnimals}
           bgColor="bg-gradient-to-r from-blue-500 to-blue-600"
         />

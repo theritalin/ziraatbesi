@@ -16,6 +16,7 @@ const WeighingPage = () => {
   const [toast, setToast] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState('all'); // 'all' or group_id
   const [groups, setGroups] = useState([]);
+  const [showPassives, setShowPassives] = useState(false);
 
   const canEdit = userRole === 'admin' || permissions?.weighing === 'edit';
 
@@ -160,10 +161,18 @@ const WeighingPage = () => {
 
   // Filter animals by selected group
   const filteredAnimals = useMemo(() => {
-    if (selectedGroup === 'all') return animals;
-    if (selectedGroup === 'null') return animals.filter(a => !a.group_id);
-    return animals.filter(a => a.group_id === parseInt(selectedGroup));
-  }, [animals, selectedGroup]);
+    let list = animals;
+    
+    // 1. Filter Passives
+    if (!showPassives) {
+      list = list.filter(a => a.status !== 'passive');
+    }
+    
+    // 2. Filter Group
+    if (selectedGroup === 'all') return list;
+    if (selectedGroup === 'null') return list.filter(a => !a.group_id);
+    return list.filter(a => a.group_id === parseInt(selectedGroup));
+  }, [animals, selectedGroup, showPassives]);
 
   if (loading) {
     return (
@@ -208,6 +217,20 @@ const WeighingPage = () => {
               )}
             </select>
           </div>
+          
+          <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 mb-0.5" style={{height: '42px'}}>
+            <input
+              type="checkbox"
+              id="showPassives"
+              checked={showPassives}
+              onChange={(e) => setShowPassives(e.target.checked)}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+            />
+            <label htmlFor="showPassives" className="ml-2 block text-sm text-gray-900 select-none cursor-pointer">
+              Pasifleri Göster
+            </label>
+          </div>
+
           {canEdit && (
             <button
               onClick={handleSave}

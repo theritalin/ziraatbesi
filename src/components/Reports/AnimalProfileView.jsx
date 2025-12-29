@@ -223,15 +223,24 @@ const AnimalProfileView = ({ animals, weighings, veterinaryRecords, costData }) 
                     {animalData.carcassVal.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
                   </span>
                 </div>
-                <div className="flex justify-between border-b border-gray-200 pb-1">
-                  <span className="font-semibold">Maliyet:</span>
-                  <span className="font-bold text-red-600">
-                    {animalData.totalCost.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                    {/* {animalData.totalCost.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
                   </span>
-                </div>
+                </div> */}
+                {animalData.status === 'passive' && (
+                  <div className="flex justify-between border-b border-gray-200 pb-1">
+                    <span className="font-semibold text-red-600">Pasif Tarihi:</span>
+                    <span className="text-red-700 font-bold">
+                       {animalData.passive_date ? new Date(animalData.passive_date).toLocaleDateString('tr-TR') : '-'}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between pt-1">
                   <span className="font-semibold">Güncel Durum:</span>
-                  <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">Aktif</span>
+                  {animalData.status === 'passive' ? (
+                       <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 text-xs font-medium">Pasif</span>
+                  ) : (
+                       <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">Aktif</span>
+                  )}
                 </div>
               </div>
             </div>

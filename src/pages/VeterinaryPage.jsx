@@ -37,7 +37,12 @@ const VeterinaryPage = () => {
     try {
       setLoading(true);
       const [animalsRes, recordsRes] = await Promise.all([
-        supabase.from('animals').select('*').eq('farm_id', farmId).order('tag_number', { ascending: true }),
+        // Filter out passive animals for selection
+        supabase.from('animals')
+          .select('*')
+          .eq('farm_id', farmId)
+          .neq('status', 'passive') 
+          .order('tag_number', { ascending: true }),
         supabase.from('veterinary_records')
           .select(`
             *,

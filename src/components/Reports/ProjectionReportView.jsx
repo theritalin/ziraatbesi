@@ -118,9 +118,11 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
 
   // Main Calculations
   const tableData = useMemo(() => {
-    let filteredAnimals = animals;
+    // Filter out passive animals
+    let filteredAnimals = animals.filter(a => a.status !== 'passive');
+    
     if (selectedGroups.length > 0) {
-      filteredAnimals = animals.filter(a => selectedGroups.includes(a.group_id));
+      filteredAnimals = filteredAnimals.filter(a => selectedGroups.includes(a.group_id));
     }
 
     return filteredAnimals.map(animal => {

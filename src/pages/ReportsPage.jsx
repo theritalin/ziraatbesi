@@ -27,6 +27,7 @@ const ReportsPage = () => {
   const [generalExpenses, setGeneralExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportType, setReportType] = useState('inventory');
+  const [showPassives, setShowPassives] = useState(false);
 
   useEffect(() => {
     if (farmId) {
@@ -61,11 +62,18 @@ const ReportsPage = () => {
     }
   };
 
+
+  // Filter animals based on showPassives toggle
+  const visibleAnimals = useMemo(() => {
+    if (showPassives) return animals;
+    return animals.filter(a => a.status !== 'passive');
+  }, [animals, showPassives]);
+
   // --- Calculations ---
 
   // 1. Animal Inventory & GCAA
   const inventoryData = useMemo(() => {
-    return animals.map(animal => {
+    return visibleAnimals.map(animal => {
       const animalWeighings = weighings
         .filter(w => w.animal_id === animal.id)
         .sort((a, b) => new Date(a.weigh_date) - new Date(b.weigh_date));
@@ -103,9 +111,9 @@ const ReportsPage = () => {
   const feedConsumption = useMemo(() => {
     const consumption = {}; // feed_id -> daily_amount
     
-    // Count animals per group
+    // Count animals per group (using visible animals to reflect toggle in calculations)
     const animalsPerGroup = {};
-    animals.forEach(a => {
+    visibleAnimals.forEach(a => {
       if (a.group_id) {
         animalsPerGroup[a.group_id] = (animalsPerGroup[a.group_id] || 0) + 1;
       }
@@ -122,7 +130,7 @@ const ReportsPage = () => {
       }
     });
     return consumption;
-  }, [animals, rations]);
+  }, [visibleAnimals, rations]);
 
   const feedStockData = useMemo(() => {
     return feeds.map(feed => {
@@ -147,7 +155,7 @@ const ReportsPage = () => {
 
   const pivotData = useMemo(() => {
     const animalMap = {};
-    animals.forEach(a => {
+    visibleAnimals.forEach(a => {
       animalMap[a.id] = { tag_number: a.tag_number };
     });
     weighings.forEach(w => {
@@ -156,7 +164,7 @@ const ReportsPage = () => {
       }
     });
     return Object.values(animalMap);
-  }, [animals, weighings]);
+  }, [visibleAnimals, weighings]);
 
   // 3. Cost Reports (Animal & Group)
   const costData = useMemo(() => {
@@ -185,10 +193,88 @@ const ReportsPage = () => {
     };
 
     // Helper: General Expenses Share per Animal
-    const totalGeneralExpenses = generalExpenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
-    const generalExpensePerAnimal = animals.length > 0 ? totalGeneralExpenses / animals.length : 0;
+    // Correct approach:
+    // General expenses should be distributed to animals ACTIVE at that time.
+    // For MVP simplification without complex daily distribution history:
+    // We will distribute total expenses by (Total Active Animal Days).
+    // Or simpler: Total General Expense / Current Active Count? No, unfair to new animals.
+    // Better: Filter general expenses. If expense date > animal passive date, they don't pay.
+    // Even better: Calculate "Daily General Cost" (Total Monthly / 30 / Active Count).
+    // Let's stick to a simpler robust logic for now:
+    // 1. Calculate 'Active Share Units' for each animal. Active share = Days Active in Farm.
+    // 2. Distribute Total Expenses proportional to Days Active.
+    // OR easier: Flat fee per active animal? User wants "Pasifleri hesaba katma".
+    // Let's use: Distribute Total Expenses / (Active Animals Count).
+    // Passive animals stop paying after passive_date.
+    
+    // REVISED LOGIC as per user request: "Pasifleri hesaba katma" implies checking dates.
+    // We'll calculate a 'General Cost' for each animal.
+    // Iterate all general expenses.
+    // For each expense, divide amount by (Count of animals active on expense_date).
+    // Assign that share to each of those active animals.
+    
+    // Helper: General Expenses Share per Animal
+    // The previous logic for distributing expenses uses checking ACTIVE status on the DATE.
+    // However, for the displayed report, if "Show Passives" is OFF, we should probably exclude them?
+    // Actually, "Show Passives" OFF means "Active animals only". 
+    // BUT, cost calculation logic is "Historical correctness".
+    // Even if passive is hidden, the distribution to active animals shouldn't change (the fact that a passive animal *existed* doesn't mean active ones paid more).
+    // Wait, generally cost per animal = Total / Count.
+    // If we hide passives in the TABLE, we just don't show their row.
+    // The calculations for ACTIVE animals should remain the same.
+    // So we just iterate `visibleAnimals`.
+    
+    // ...BUT we need `animalShares` for ALL animals first to ensure correctness? 
+    // No, `animalShares` is calculated per animal. We just calculate for `visibleAnimals`.
+    // Wait, the distribution logic iterates `activeAnimalsOnDate` from ALL animals to get the denominator.
+    // So distinct calculation:
+    // 1. Distribution Denominator = ALL animals active on date.
+    // 2. Report Rows = `visibleAnimals`.
+    
+    const animalShares = {}; // animal_id -> total general cost
+    visibleAnimals.forEach(a => animalShares[a.id] = 0);
 
-    return animals.map(animal => {
+    generalExpenses.forEach(exp => {
+        const expDate = new Date(exp.expense_date);
+        expDate.setHours(0,0,0,0);
+        
+        // Count active animals on this date (Must use ALL animals to get correct denominator count)
+        const activeAnimalsCountOnDate = animals.filter(a => {
+            const regDate = new Date(a.birth_date); 
+            regDate.setHours(0,0,0,0);
+            if (regDate > expDate) return false; 
+            
+            if (a.status === 'passive') {
+                const pDate = new Date(a.passive_date);
+                pDate.setHours(0,0,0,0);
+                if (pDate <= expDate) return false; 
+            }
+            return true;
+        }).length;
+
+        if (activeAnimalsCountOnDate > 0) {
+            const share = (parseFloat(exp.amount) || 0) / activeAnimalsCountOnDate;
+            // Only add share to visible animals
+            visibleAnimals.forEach(a => {
+                // Check if this specific visible animal was active on that date
+                 const regDate = new Date(a.birth_date); 
+                 regDate.setHours(0,0,0,0);
+                 let isActive = true;
+                 if (regDate > expDate) isActive = false;
+                 if (a.status === 'passive') {
+                    const pDate = new Date(a.passive_date);
+                    pDate.setHours(0,0,0,0);
+                    if (pDate <= expDate) isActive = false;
+                 }
+                 
+                 if (isActive) {
+                     animalShares[a.id] = (animalShares[a.id] || 0) + share;
+                 }
+            });
+        }
+    });
+
+    return visibleAnimals.map(animal => {
       // Purchase Cost
       const purchasePrice = parseFloat(animal.purchase_price) || 0;
 
@@ -217,8 +303,19 @@ const ReportsPage = () => {
             const endDate = ration.end_date ? new Date(ration.end_date) : new Date();
             endDate.setHours(0, 0, 0, 0);
             
+            // Cap end date by animal's passive date if it exists
+            let effectiveEndDate = endDate;
+            if (animal.status === 'passive' && animal.passive_date) {
+                const pDate = new Date(animal.passive_date);
+                pDate.setHours(0,0,0,0);
+                if (pDate < endDate) {
+                    effectiveEndDate = pDate;
+                }
+            }
+            
             // Calculate duration in days (inclusive of both start and end dates)
-            const duration = Math.max(0, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+            // Ensure we don't calculate negative duration if start > effectiveEnd
+            const duration = Math.max(0, Math.floor((effectiveEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
             totalFeedCost += duration * dailyCost;
         });
       }
@@ -229,7 +326,7 @@ const ReportsPage = () => {
         .reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
 
       // Total
-      const totalCost = purchasePrice + totalFeedCost + vetCost + generalExpensePerAnimal;
+      const totalCost = purchasePrice + totalFeedCost + vetCost + (animalShares[animal.id] || 0);
 
       return {
         id: animal.id,
@@ -238,11 +335,11 @@ const ReportsPage = () => {
         purchase_price: purchasePrice, // Keep as number for sorting/calc
         feed_cost: totalFeedCost,
         vet_cost: vetCost,
-        general_cost: generalExpensePerAnimal,
+        general_cost: animalShares[animal.id] || 0,
         total_cost: totalCost
       };
     });
-  }, [animals, rations, feeds, veterinaryRecords, generalExpenses]);
+  }, [visibleAnimals, animals, rations, feeds, veterinaryRecords, generalExpenses]);
 
   // Group Aggregation
   const groupCostData = useMemo(() => {
@@ -340,7 +437,7 @@ const ReportsPage = () => {
 
   // GCAA Report Data (Günlük Canlı Ağırlık Artışı)
   const gcaaData = useMemo(() => {
-    return animals.map(animal => {
+    return visibleAnimals.map(animal => {
       const animalWeighings = weighings
         .filter(w => w.animal_id === animal.id)
         .sort((a, b) => new Date(a.weigh_date) - new Date(b.weigh_date));
@@ -377,7 +474,7 @@ const ReportsPage = () => {
           : 0
       };
     }).filter(a => a.periods.length > 0);
-  }, [animals, weighings]);
+  }, [visibleAnimals, weighings]);
 
   // Flatten GCAA data for table display
   const gcaaDataFlattened = useMemo(() => {
@@ -435,7 +532,12 @@ const ReportsPage = () => {
     const allGroupIds = new Set();
 
     activeRations.forEach(ration => {
-      const animalCount = animals.filter(a => a.group_id === ration.group_id).length;
+      // For active rations report, should we only count active/visible animals?
+      // Yes, "ona göre hesap yap" -> count visible animals for this report.
+      // But rationing usually applies to the whole group physically. 
+      // User intent: "Pasifleri hesaba katma" implies projected usage should ignore passives.
+      // So we use visibleAnimals.
+      const animalCount = visibleAnimals.filter(a => a.group_id === ration.group_id).length;
       
       if (!ration.content || ration.content.length === 0 || !ration.group_id) return;
       
@@ -469,7 +571,7 @@ const ReportsPage = () => {
       row.total = total;
       return row;
     });
-  }, [rations, animals, feeds]);
+  }, [rations, visibleAnimals, feeds]);
 
   // Dynamic columns for active rations based on existing groups
   const columnsActiveRations = useMemo(() => {
@@ -576,6 +678,19 @@ const ReportsPage = () => {
             <option value="weighing_day">Tartım Günü Raporu</option>
             <option value="projection">Projeksiyon Raporu</option>
           </select>
+        </div>
+        
+        <div className="ml-4 flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+            <input
+              type="checkbox"
+              id="showPassives"
+              checked={showPassives}
+              onChange={(e) => setShowPassives(e.target.checked)}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+            />
+            <label htmlFor="showPassives" className="ml-2 block text-sm text-gray-900 select-none cursor-pointer">
+              Pasifleri Göster
+            </label>
         </div>
       </div>
 
