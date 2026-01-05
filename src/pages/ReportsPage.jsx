@@ -174,8 +174,8 @@ const ReportsPage = () => {
     };
 
     // Helper: Calculate daily cost of a ration
-    const getRationDailyCost = (groupId) => {
-      const ration = rations.find(r => r.group_id == groupId);
+    // Helper: Calculate daily cost of a ration
+    const calculateRationCost = (ration) => {
       if (!ration) return 0;
       
       let dailyCost = 0;
@@ -183,6 +183,10 @@ const ReportsPage = () => {
       const items = ration.content || [];
       if (Array.isArray(items)) {
         items.forEach(item => {
+          // Find the feed to get the CURRENT price. 
+          // NOTE: If we want historical price, we should have stored it in ration content.
+          // Currently, the system uses current feed price even for old rations (as per code analysis).
+          // But valid ration content should be used.
           const feed = feeds.find(f => f.id == item.feed_id);
           if (feed) {
             dailyCost += (parseFloat(item.amount) || 0) * (parseFloat(feed.price_per_kg) || 0);
@@ -288,7 +292,7 @@ const ReportsPage = () => {
         const groupRations = rations.filter(r => r.group_id == animal.group_id);
         
         groupRations.forEach(ration => {
-            const dailyCost = getRationDailyCost(ration.group_id); 
+            const dailyCost = calculateRationCost(ration); 
 
             // Calculate duration
             let startDate;
