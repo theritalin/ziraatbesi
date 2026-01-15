@@ -44,8 +44,8 @@ const dateFormatter = (cell) => {
 const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, generalExpenses = [] }) => {
   // Inputs
   const [selectedGroups, setSelectedGroups] = useState([]);
-  const [targetWeight, setTargetWeight] = useState(725);
-  const [carcassPrice, setCarcassPrice] = useState(560);
+  const [targetWeight, setTargetWeight] = useState(700);
+  const [carcassPrice, setCarcassPrice] = useState(600);
   const [yieldPercentage, setYieldPercentage] = useState(58);
   const [customGcaa, setCustomGcaa] = useState(1.5);
   const [gcaaMode, setGcaaMode] = useState('custom'); // 'last' or 'custom'
@@ -54,7 +54,7 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
 
   // Other expenses settings
   const [expenseMode, setExpenseMode] = useState('last'); // 'last' or 'custom'
-  const [customMonthlyExpense, setCustomMonthlyExpense] = useState(0);
+  const [customMonthlyExpense, setCustomMonthlyExpense] = useState(45000);
 
   // Calculate last month's total expenses
   const lastMonthExpenses = useMemo(() => {
@@ -119,7 +119,7 @@ const ProjectionReportView = ({ animals, weighings, rations, feeds, costData, ge
   // Main Calculations
   const tableData = useMemo(() => {
     // Filter out passive animals
-    let filteredAnimals = animals.filter(a => a.status !== 'passive');
+    let filteredAnimals = animals;
     
     if (selectedGroups.length > 0) {
       filteredAnimals = filteredAnimals.filter(a => selectedGroups.includes(a.group_id));

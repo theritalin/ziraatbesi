@@ -9,6 +9,7 @@ import AnimalProfileView from '../components/Reports/AnimalProfileView';
 import DailyVeterinaryView from '../components/Reports/DailyVeterinaryView';
 import WeighingDayReportView from '../components/Reports/WeighingDayReportView';
 import ProjectionReportView from '../components/Reports/ProjectionReportView';
+import TotalVeterinaryReportView from '../components/Reports/TotalVeterinaryReportView';
 
 const moneyFormatter = (cell) => {
   if (!cell || !cell.getValue) return '-';
@@ -679,6 +680,7 @@ const ReportsPage = () => {
             <option value="animal_profile">Hayvan Karnesi</option>
             
             <option value="daily_veterinary">Günlük Veteriner Raporu</option>
+            <option value="total_veterinary">Veteriner Özeti (Tümü)</option>
             <option value="weighing_day">Tartım Günü Raporu</option>
             <option value="projection">Projeksiyon Raporu</option>
           </select>
@@ -711,8 +713,8 @@ const ReportsPage = () => {
             veterinaryRecords={veterinaryRecords}
             animals={animals}
           />
-        ) : reportType === 'daily_veterinary' ? (
-          <DailyVeterinaryView 
+        ) : reportType === 'total_veterinary' ? (
+          <TotalVeterinaryReportView 
             veterinaryRecords={veterinaryRecords}
             animals={animals}
           />
@@ -723,7 +725,7 @@ const ReportsPage = () => {
           />
         ) : reportType === 'projection' ? (
           <ProjectionReportView 
-            animals={animals}
+            animals={visibleAnimals}
             weighings={weighings}
             rations={rations}
             feeds={feeds}
