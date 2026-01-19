@@ -661,10 +661,11 @@ const ReportsPage = () => {
     <div className="h-full flex flex-col">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Raporlar</h1>
-          <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik performans ve maliyet raporları</p>
-        </div>
-        <div className="w-auto">
+          <div>
+             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Raporlar</h1>
+          </div>
+         
+          <div className="w-auto">
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
@@ -685,6 +686,9 @@ const ReportsPage = () => {
             <option value="projection">Projeksiyon Raporu</option>
           </select>
         </div>
+      
+        </div>
+
         
         <div className="ml-4 flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
             <input
