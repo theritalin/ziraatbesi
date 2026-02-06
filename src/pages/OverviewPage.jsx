@@ -1,7 +1,150 @@
 import React, { useState, useEffect } from 'react';
 import { useFarmId } from '../hooks/useFarmId';
 import { supabase } from '../supabaseClient';
-import { FiUsers, FiTrendingUp, FiTrendingDown, FiClipboard, FiDollarSign } from 'react-icons/fi';
+import { FiUsers, FiClipboard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+
+const StatCard = ({ icon: Icon, title, value, bgColor }) => (
+  <div className={`${bgColor} rounded-lg shadow-md p-6 text-white`}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm opacity-90">{title}</p>
+        <p className="text-3xl font-bold mt-1">{value}</p>
+      </div>
+      <Icon className="w-12 h-12 opacity-80" />
+    </div>
+  </div>
+);
+
+const GroupCostList = ({ groups }) => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+     <div className="flex items-center gap-2 mb-4">
+      <FiDollarSign className="w-6 h-6 text-blue-600" />
+      <h3 className="text-lg font-semibold text-gray-800">Grup Ortalama Maliyetleri</h3>
+    </div>
+    {groups.length > 0 ? (
+      <div className="overflow-x-auto">
+          <table className="min-w-full">
+              <thead>
+                  <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 text-sm text-gray-600">Grup</th>
+                      <th className="text-right py-2 text-sm text-gray-600">Ortalama Maliyet</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {groups.map((group, index) => (
+                      <tr key={index} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                          <td className="py-2 text-gray-800 font-medium">
+                              {group.id === 'Grutsuz' ? 'Grup Yok' : `Grup ${group.id}`}
+                          </td>
+                          <td className="py-2 text-right text-gray-800 font-bold">
+                              {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(group.avgCost)}
+                          </td>
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
+      </div>
+    ) : (
+       <p className="text-gray-500 text-sm">Veri bulunamadı</p>
+    )}
+  </div>
+);
+
+const SalesProjection = ({ groups, salesProjections, onProjectionChange }) => {
+  let totalRevenue = 0;
+  let totalProfit = 0;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <FiPieChart className="w-6 h-6 text-purple-600" />
+        <h3 className="text-lg font-semibold text-gray-800">Grup Satış Projeksiyonu</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-sm text-gray-600">Grup</th>
+              <th className="text-center py-2 text-sm text-gray-600">Mevcut Hayvan</th>
+              <th className="text-center py-2 text-sm text-gray-600 w-32">Satılacak Adet</th>
+              <th className="text-center py-2 text-sm text-gray-600 w-40">Tahmini Fiyat (TL/Adet)</th>
+              <th className="text-right py-2 text-sm text-gray-600">Tahmini Gelir</th>
+              <th className="text-right py-2 text-sm text-gray-600">Tahmini Kar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const projection = salesProjections[group.id] || {};
+              
+              const count = projection.count !== undefined ? projection.count : 0;
+              // Default price to average cost if not set, to avoid negative profit confusion
+              const price = projection.price !== undefined ? projection.price : Math. ceil(group.avgCost);
+              
+              const revenue = count * price;
+              const profit = revenue - (group.avgCost * count);
+              
+              totalRevenue += revenue;
+              totalProfit += profit;
+
+              return (
+                <tr key={group.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                  <td className="py-3 text-gray-800 font-medium">
+                    {group.id === 'Grutsuz' ? 'Grup Yok' : `Grup ${group.id}`}
+                  </td>
+                  <td className="py-3 text-center text-gray-600">
+                    {group.count}
+                  </td>
+                  <td className="py-3 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <input 
+                        type="range" 
+                        min="0"
+                        max={group.count}
+                        value={count}
+                        onChange={(e) => onProjectionChange(group.id, 'count', e.target.value)}
+                        className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700 w-6 text-left">{count}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 text-center">
+                      <div className="relative inline-block w-32">
+                           <input 
+                              type="number" 
+                              min="0"
+                              value={price}
+                              onChange={(e) => onProjectionChange(group.id, 'price', e.target.value)}
+                              className="w-full pl-6 pr-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          <span className="absolute left-2 top-1.5 text-gray-400">₺</span>
+                      </div>
+                  </td>
+                  <td className="py-3 text-right font-medium text-gray-800">
+                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(revenue)}
+                  </td>
+                  <td className={`py-3 text-right font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(profit)}
+                  </td>
+                </tr>
+              );
+            })}
+            
+            {/* Totals Row */}
+            <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+              <td className="py-4 text-gray-800" colSpan={4}>TOPLAM DEĞERLER</td>
+              <td className="py-4 text-right text-gray-800">
+                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(totalRevenue)}
+              </td>
+              <td className={`py-4 text-right ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(totalProfit)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 const OverviewPage = () => {
   const { farmId } = useFarmId();
@@ -9,16 +152,35 @@ const OverviewPage = () => {
   const [stats, setStats] = useState({
     totalAnimals: 0,
     activeRations: 0,
-    topLastWeighing: [],
-    bottomLastWeighing: [],
-    groupCosts: []
+    groupCosts: [],
+    groupCounts: {} // Store counts to default projection inputs
   });
+  
+  // Sales Projection State: { groupId: { price: number, count: number } }
+  const [salesProjections, setSalesProjections] = useState({});
 
   useEffect(() => {
     if (farmId) {
+      const savedProjections = localStorage.getItem(`sales_projections_${farmId}`);
+      if (savedProjections) {
+        const parsed = JSON.parse(savedProjections);
+        // Reset counts to 0, keep prices
+        const resetCounts = {};
+        Object.keys(parsed).forEach(key => {
+            resetCounts[key] = { ...parsed[key], count: 0 };
+        });
+        setSalesProjections(resetCounts);
+      }
       fetchOverviewData();
     }
   }, [farmId]);
+
+  // Persist projections when they change
+  useEffect(() => {
+    if (farmId && Object.keys(salesProjections).length > 0) {
+      localStorage.setItem(`sales_projections_${farmId}`, JSON.stringify(salesProjections));
+    }
+  }, [salesProjections, farmId]);
 
   const fetchOverviewData = async () => {
     try {
@@ -36,7 +198,6 @@ const OverviewPage = () => {
       const [
         animalsRes,
         activeRationsRes,
-        weighingsRes,
         feedsRes,
         rationsRes,
         vetRes,
@@ -45,7 +206,7 @@ const OverviewPage = () => {
          // 1. Animals (Active Only for performance stats)
         supabase
           .from('animals')
-          .select('id, tag_number, current_weight, last_weight_kg, last_weigh_date, group_id, purchase_price, birth_date, passive_date, status') // Selected all needed fields
+          .select('id, group_id, purchase_price, birth_date, passive_date, status')
           .eq('status', 'active')
           .eq('farm_id', farmId),
           
@@ -56,86 +217,24 @@ const OverviewPage = () => {
           .eq('farm_id', farmId)
           .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
 
-        // 3. Weighings
-        supabase
-          .from('weighings')
-          .select('*')
-          .eq('farm_id', farmId)
-          .order('weigh_date', { ascending: true }),
-
-        // 4. Feeds (For Cost Calc)
+        // 3. Feeds (For Cost Calc)
         supabase.from('feeds').select('id, price_per_kg').eq('farm_id', farmId),
 
-        // 5. Rations (For Cost Calc)
+        // 4. Rations (For Cost Calc)
         supabase.from('rations').select('*').eq('farm_id', farmId),
 
-        // 6. Vet Records (For Cost Calc)
-         supabase.from('veterinary_records').select('*').eq('farm_id', farmId),
+        // 5. Vet Records (For Cost Calc)
+        supabase.from('veterinary_records').select('*').eq('farm_id', farmId),
          
-        // 7. General Expenses (For Cost Calc)
+        // 6. General Expenses (For Cost Calc)
         supabase.from('general_expenses').select('*').eq('farm_id', farmId)
       ]);
 
       const animals = animalsRes.data || [];
-      const weighings = weighingsRes.data || [];
       const feeds = feedsRes.data || [];
       const rations = rationsRes.data || [];
       const veterinaryRecords = vetRes.data || [];
       const generalExpenses = expensesRes.data || [];
-
-
-      // --- Performance Stats Calculations (Active Animals Only) ---
-
-      // Calculate gains for valid active animals
-      const animalStats = animals.map(animal => {
-        const animalWeighings = weighings.filter(w => w.animal_id === animal.id);
-        
-        // Last weighing gain (difference from previous weighing)
-        let lastGain = 0;
-        if (animalWeighings.length >= 2) {
-          lastGain = animalWeighings[animalWeighings.length - 1].weight_kg - animalWeighings[animalWeighings.length - 2].weight_kg;
-        } else if (animalWeighings.length === 1 && animal.current_weight) {
-             // If manual current_weight exists and different from the single weighing? 
-             // Logic from original file: "First weighing compared to current_weight"
-             // Actually, usually current_weight IS the last weighing weight.
-             // If we have 1 weighing record, and that IS the current weight, gain is 0 unless we have initial registration weight seperate.
-             // Standard logic: Gain = Last - Previous. 
-             // If only 1 weighing, we can't really calc last gain unless we treat 'purchase/birth' as weighing.
-             // Using original logic:
-             lastGain = animalWeighings[0].weight_kg - (animal.initial_weight || animal.current_weight); // Fallback, likely 0
-             // Correction: Original logic used current_weight as base if 1 weighing.
-             // Let's stick to: we need at least 2 data points for a "Gain".
-             // If animalWeighings.length == 1, lastGain is 0 unless we assume initial=0 (wrong).
-             // Let's keep strict:
-             if (animalWeighings.length === 1 && animal.current_weight != animalWeighings[0].weight_kg) {
-                  lastGain =  animalWeighings[0].weight_kg - animal.current_weight;
-             }
-        }
-        
-        // Better logic for Last Gain:
-        // If sorting by WeighDate, last item is latest.
-        // Gain = Last.Weight - SecondToLast.Weight
-        let lastWeighDate = null;
-        if (animalWeighings.length > 0) {
-            lastWeighDate = animalWeighings[animalWeighings.length - 1].weigh_date;
-            if (animalWeighings.length >= 2) {
-                lastGain = animalWeighings[animalWeighings.length - 1].weight_kg - animalWeighings[animalWeighings.length - 2].weight_kg;
-            }
-        }
-
-        return {
-          tag_number: animal.tag_number,
-          lastGain,
-          lastWeighDate,
-          hasWeighings: animalWeighings.length > 0
-        };
-      });
-
-      // Filter: only include animals that have at least one weighing for display
-      const animalsWithWeighings = animalStats.filter(a => a.hasWeighings && a.lastGain !== 0); // show only if gain exists? Or even 0.
-      
-      const topLastWeighing = [...animalsWithWeighings].sort((a, b) => b.lastGain - a.lastGain).slice(0, 3);
-      const bottomLastWeighing = [...animalsWithWeighings].sort((a, b) => a.lastGain - b.lastGain).slice(0, 3);
 
 
       // --- Cost Calculations (Matching ReportsPage Logic) ---
@@ -157,18 +256,10 @@ const OverviewPage = () => {
       };
 
       // General Expenses Distribution
-      // Note: We need ALL animals to distribute correctly (denominator includes passives if they were active then).
-      // But we constrained `animals` fetch to active only. 
-      // To catch true cost, we technically need ALL animals for the denominator.
-      // However, making a second fetch just for accurate historical denominator might be heavy.
-      // Approximation: Use active animals count? 
-      // User said "Pasifleri çıkar", but for cost accuracy, if we divide $1000 by only active animals (50) instead of all (100), cost doubles wrongly.
-      // Let's quickly fetch ALL animals ID/Dates for calculation correctnes, but simplified.
-      // Actually, let's fetch ALL animals in the main query but filter for UI lists.
-      // RE-FETCHING ALL ANIMALS FOR ACCURACY
+      // RE-FETCHING ALL ANIMALS FOR ACCURACY (needed for accurate historical expense distribution)
        const { data: allAnimals } = await supabase
         .from('animals')
-        .select('id, group_id, birth_date, passive_date, status, tag_number, purchase_price')
+        .select('id, group_id, birth_date, passive_date, status')
         .eq('farm_id', farmId);
 
        const animalShares = {}; 
@@ -201,7 +292,6 @@ const OverviewPage = () => {
                    regDate.setHours(0,0,0,0);
                    let isActive = true;
                    if (regDate > expDate) isActive = false;
-                   // We know 'a' is currently active, so no passive check needed for 'a'
                    
                    if (isActive) {
                        animalShares[a.id] = (animalShares[a.id] || 0) + share;
@@ -211,13 +301,6 @@ const OverviewPage = () => {
       });
 
       // Calculate Cost Per Animal
-      // We use 'allAnimals' for group aggregation to be robust, or just 'animals' (active)?
-      // "Grup Maliyet Raporu" typically includes all costs. 
-      // User asked "Genel performansı çıkar, grup maliyeti ekle".
-      // Usually you want to see costs of CURRENT stock? Or historical?
-      // Given it's "Overview" (Genel Bakış), seeing current active inventory cost makes sense.
-      // Let's calculate for ACTIVE animals.
-      
       const animalCosts = animals.map(animal => {
           // Purchase
           const purchasePrice = parseFloat(animal.purchase_price) || 0;
@@ -241,7 +324,7 @@ const OverviewPage = () => {
                 animStart.setHours(0,0,0,0);
                 
                 const effectiveStart = startDate < animStart ? animStart : startDate;
-                const effectiveEnd = endDate; // Currently active, so up to ration end (or today if ration ongoing)
+                const effectiveEnd = endDate; 
 
                 if (effectiveEnd >= effectiveStart) {
                      const duration = Math.floor((effectiveEnd - effectiveStart) / (1000 * 60 * 60 * 24)) + 1;
@@ -262,26 +345,28 @@ const OverviewPage = () => {
       });
 
       // Aggregating by Group
-      const groups = {};
+      const groupStats = {};
       animalCosts.forEach(a => {
           const gId = a.group_id || 'Grutsuz';
-          if (!groups[gId]) groups[gId] = { id: gId, count: 0, totalCost: 0 };
-          groups[gId].count += 1;
-          groups[gId].totalCost += a.total_cost;
+          if (!groupStats[gId]) groupStats[gId] = { id: gId, count: 0, totalCost: 0 };
+          groupStats[gId].count += 1;
+          groupStats[gId].totalCost += a.total_cost;
       });
 
-      const groupCosts = Object.values(groups).map(g => ({
+      const groupCosts = Object.values(groupStats).map(g => ({
           id: g.id,
-          avgCost: g.count > 0 ? g.totalCost / g.count : 0
+          avgCost: g.count > 0 ? g.totalCost / g.count : 0,
+          count: g.count
       })).sort((a,b) => b.avgCost - a.avgCost);
-
+      
+      const counts = {};
+      groupCosts.forEach(g => counts[g.id] = g.count);
 
       setStats({
         totalAnimals: animals.length,
         activeRations: activeRationsRes.count || 0,
-        topLastWeighing,
-        bottomLastWeighing,
-        groupCosts
+        groupCosts,
+        groupCounts: counts
       });
 
     } catch (error) {
@@ -289,6 +374,16 @@ const OverviewPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProjectionChange = (groupId, field, value) => {
+    setSalesProjections(prev => ({
+      ...prev,
+      [groupId]: {
+        ...prev[groupId],
+        [field]: parseFloat(value) || 0
+      }
+    }));
   };
 
   if (loading) {
@@ -299,85 +394,8 @@ const OverviewPage = () => {
     );
   }
 
-  const StatCard = ({ icon: Icon, title, value, bgColor }) => (
-    <div className={`${bgColor} rounded-lg shadow-md p-6 text-white`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm opacity-90">{title}</p>
-          <p className="text-3xl font-bold mt-1">{value}</p>
-        </div>
-        <Icon className="w-12 h-12 opacity-80" />
-      </div>
-    </div>
-  );
-
-  const LastWeighingList = ({ animals, title, icon: Icon, isBest }) => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className={`w-6 h-6 ${isBest ? 'text-green-600' : 'text-red-600'}`} />
-        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-      </div>
-      {animals.length > 0 ? (
-        <div className="space-y-3">
-          {animals.map((animal, index) => (
-            <div key={index} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
-              <div>
-                <span className="font-medium text-gray-800">{animal.tag_number}</span>
-                {animal.lastWeighDate && (
-                  <span className="text-xs text-gray-400 ml-2">
-                    {new Date(animal.lastWeighDate).toLocaleDateString('tr-TR')}
-                  </span>
-                )}
-              </div>
-              <div className={`font-bold ${isBest ? 'text-green-600' : 'text-red-600'}`}>
-                {animal.lastGain > 0 ? '+' : ''}{animal.lastGain.toFixed(1)} kg
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-gray-500 text-sm">Veri bulunamadı</p>
-      )}
-    </div>
-  );
-  
-  const GroupCostList = ({ groups }) => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-       <div className="flex items-center gap-2 mb-4">
-        <FiDollarSign className="w-6 h-6 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-800">Grup Ortalama Maliyetleri</h3>
-      </div>
-      {groups.length > 0 ? (
-        <div className="overflow-x-auto">
-            <table className="min-w-full">
-                <thead>
-                    <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 text-sm text-gray-600">Grup</th>
-                        <th className="text-right py-2 text-sm text-gray-600">Ortalama Maliyet</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {groups.map((group, index) => (
-                        <tr key={index} className="border-b border-gray-100 last:border-0">
-                            <td className="py-2 text-gray-800 font-medium">
-                                {group.id === 'Grutsuz' ? 'Grup Yok' : `Grup ${group.id}`}
-                            </td>
-                            <td className="py-2 text-right text-gray-800 font-bold">
-                                {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(group.avgCost)}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-      ) : (
-         <p className="text-gray-500 text-sm">Veri bulunamadı</p>
-      )}
-    </div>
-  );
-
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-auto p-1">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Genel Bakış</h1>
         <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik özet istatistikleri</p>
@@ -399,27 +417,20 @@ const OverviewPage = () => {
         />
       </div>
 
-      {/* Group Costs */}
-      <div className="mb-6">
-          <GroupCostList groups={stats.groupCosts} />
-      </div>
+      {/* Group Costs & Sales Projection Stacked */}
+      <div className="space-y-6">
+         {/* Group Costs */}
+        <div className="w-full">
+            <GroupCostList groups={stats.groupCosts} />
+        </div>
 
-      {/* Top and Bottom Performers - Last Weighing */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Son Tartım Performansı (Son Kilo Artışı)</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LastWeighingList 
-            animals={stats.topLastWeighing}
-            title="En İyi 3 Hayvan"
-            icon={FiTrendingUp}
-            isBest={true}
-          />
-          <LastWeighingList 
-            animals={stats.bottomLastWeighing}
-            title="En Düşük 3 Hayvan"
-            icon={FiTrendingDown}
-            isBest={false}
-          />
+        {/* Sales Projection */}
+        <div className="w-full">
+            <SalesProjection 
+              groups={stats.groupCosts} 
+              salesProjections={salesProjections}
+              onProjectionChange={handleProjectionChange}
+            />
         </div>
       </div>
     </div>
