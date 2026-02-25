@@ -2,7 +2,7 @@
 import React, { useState, Suspense } from 'react';
 import { supabase } from '../supabaseClient';
 import { useFarmId } from '../hooks/useFarmId';
-import { FiHome, FiUsers, FiBox, FiPieChart, FiLogOut, FiMenu, FiX, FiTrendingUp, FiBarChart2, FiActivity, FiDollarSign, FiChevronDown } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBox, FiPieChart, FiLogOut, FiMenu, FiX, FiTrendingUp, FiBarChart2, FiActivity, FiDollarSign, FiChevronDown, FiCheckSquare } from 'react-icons/fi';
 
 // Lazy load components
 const OverviewPage = React.lazy(() => import('./OverviewPage'));
@@ -14,6 +14,7 @@ const ReportsPage = React.lazy(() => import('./ReportsPage'));
 const VeterinaryPage = React.lazy(() => import('./VeterinaryPage'));
 const TeamPage = React.lazy(() => import('./TeamPage'));
 const ExpensesPage = React.lazy(() => import('./ExpensesPage'));
+const TodoPage = React.lazy(() => import('./TodoPage'));
 
 const DashboardPage = ({ session }) => {
   const { farmId, availableFarms } = useFarmId();
@@ -88,6 +89,7 @@ const DashboardPage = ({ session }) => {
 
   const menuItems = [
     { id: 'overview', name: 'Genel Bakış', icon: FiHome, requiredPerm: 'dashboard' },
+    { id: 'todos', name: 'Yapılacaklar', icon: FiCheckSquare, requiredPerm: 'dashboard' },
     { id: 'animals', name: 'Hayvanlar', icon: FiUsers, requiredPerm: 'animals' },
     { id: 'feeds', name: 'Yem Deposu', icon: FiBox, requiredPerm: 'feeds' },
     { id: 'rations', name: 'Rasyonlar', icon: FiPieChart, requiredPerm: 'rations' },
@@ -112,6 +114,7 @@ const DashboardPage = ({ session }) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return <OverviewPage />;
+      case 'todos': return <TodoPage />;
       case 'animals': return <AnimalsPage />;
       case 'feeds': return <FeedsPage />;
       case 'rations': return <RationsPage />;
@@ -237,7 +240,7 @@ const DashboardPage = ({ session }) => {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-auto p-0 sm:p-6 lg:p-8">
           <Suspense fallback={
             <div className="flex justify-center items-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
