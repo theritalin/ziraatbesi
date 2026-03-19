@@ -10,6 +10,8 @@ import DailyVeterinaryView from '../components/Reports/DailyVeterinaryView';
 import WeighingDayReportView from '../components/Reports/WeighingDayReportView';
 import ProjectionReportView from '../components/Reports/ProjectionReportView';
 import TotalVeterinaryReportView from '../components/Reports/TotalVeterinaryReportView';
+import MonthlyExpenseReportView from '../components/Reports/MonthlyExpenseReportView';
+import AccountingReportView from '../components/Reports/AccountingReportView';
 
 const moneyFormatter = (cell) => {
   if (!cell || !cell.getValue) return '-';
@@ -684,6 +686,8 @@ const ReportsPage = () => {
             <option value="total_veterinary">Veteriner Özeti (Tümü)</option>
             <option value="weighing_day">Tartım Günü Raporu</option>
             <option value="projection">Projeksiyon Raporu</option>
+            <option value="monthly_expense">Aylık Genel Gider Raporu</option>
+            <option value="accounting_report">Muhasebe Bilanço Raporu</option>
           </select>
         </div>
       
@@ -736,6 +740,12 @@ const ReportsPage = () => {
             costData={costData}
             generalExpenses={generalExpenses}
           />
+        ) : reportType === 'monthly_expense' ? (
+          <MonthlyExpenseReportView 
+            generalExpenses={generalExpenses}
+          />
+        ) : reportType === 'accounting_report' ? (
+          <AccountingReportView />
         ) : (
           <ReactTabulator
             data={getData()}

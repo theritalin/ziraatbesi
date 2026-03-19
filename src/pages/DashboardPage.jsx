@@ -2,7 +2,7 @@
 import React, { useState, Suspense } from 'react';
 import { supabase } from '../supabaseClient';
 import { useFarmId } from '../hooks/useFarmId';
-import { FiHome, FiUsers, FiBox, FiPieChart, FiLogOut, FiMenu, FiX, FiTrendingUp, FiBarChart2, FiActivity, FiDollarSign, FiChevronDown, FiCheckSquare } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBox, FiPieChart, FiLogOut, FiMenu, FiX, FiTrendingUp, FiBarChart2, FiActivity, FiDollarSign, FiChevronDown, FiCheckSquare, FiBookOpen } from 'react-icons/fi';
 
 // Lazy load components
 const OverviewPage = React.lazy(() => import('./OverviewPage'));
@@ -15,6 +15,7 @@ const VeterinaryPage = React.lazy(() => import('./VeterinaryPage'));
 const TeamPage = React.lazy(() => import('./TeamPage'));
 const ExpensesPage = React.lazy(() => import('./ExpensesPage'));
 const TodoPage = React.lazy(() => import('./TodoPage'));
+const AccountingPage = React.lazy(() => import('./AccountingPage'));
 
 const DashboardPage = ({ session }) => {
   const { farmId, availableFarms } = useFarmId();
@@ -96,6 +97,7 @@ const DashboardPage = ({ session }) => {
     { id: 'weighing', name: 'Tartım', icon: FiTrendingUp, requiredPerm: 'weighing' },
     { id: 'veterinary', name: 'Veteriner', icon: FiActivity, requiredPerm: 'veterinary' },
     { id: 'expenses', name: 'Giderler', icon: FiDollarSign, requiredPerm: 'expenses' },
+    { id: 'accounting', name: 'Muhasebe', icon: FiBookOpen, requiredPerm: 'accounting' },
     { id: 'reports', name: 'Raporlar', icon: FiBarChart2, requiredPerm: 'reports' },
   ];
 
@@ -122,6 +124,7 @@ const DashboardPage = ({ session }) => {
       case 'reports': return <ReportsPage />;
       case 'veterinary': return <VeterinaryPage />;
       case 'expenses': return <ExpensesPage />;
+      case 'accounting': return <AccountingPage />;
       case 'team': return <TeamPage />;
       default: return <div>Sayfa bulunamadı</div>;
     }
