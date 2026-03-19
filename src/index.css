@@ -85,3 +85,11 @@ button:focus-visible {
     scrollbar-width: none;
   }
 }
+
+/* Fix Tabulator Row Wrapping and Squishing */
+.tabulator-row {
+  flex-wrap: nowrap !important;
+}
+.tabulator-cell {
+  white-space: pre-wrap !important;
+}

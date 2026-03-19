@@ -65,7 +65,7 @@ const AccountingPage = () => {
   const [showPartnerForm, setShowPartnerForm] = useState(false);
 
   // --- Summary State ---
-  const [summaryYear, setSummaryYear] = useState(new Date().getFullYear());
+  const [summaryYear, setSummaryYear] = useState('all');
   const [summaryMonth, setSummaryMonth] = useState(null); // null = all year
 
   const showToast = (message, type = 'success') => {
@@ -237,8 +237,8 @@ const AccountingPage = () => {
   const summaryData = useMemo(() => {
     const filtered = transactions.filter(tx => {
       const d = new Date(tx.transaction_date);
-      if (d.getFullYear() !== summaryYear) return false;
-      if (summaryMonth !== null && d.getMonth() !== summaryMonth) return false;
+      if (summaryYear !== 'all' && d.getFullYear() !== summaryYear) return false;
+      if (summaryYear !== 'all' && summaryMonth !== null && d.getMonth() !== summaryMonth) return false;
       return true;
     });
 
@@ -276,29 +276,29 @@ const AccountingPage = () => {
   const getPartnerName = (id) => partners.find(p => p.id === id)?.name || '-';
 
   const txColumns = useMemo(() => [
-    { title: "Tarih", field: "transaction_date", sorter: "string", width: 110,
+    { title: "Tarih", field: "transaction_date", sorter: "string", minWidth: 110,
       formatter: (cell) => new Date(cell.getValue()).toLocaleDateString('tr-TR') },
-    { title: "Tür", field: "type", sorter: "string", width: 130,
+    { title: "Tür", field: "type", sorter: "string", minWidth: 150,
       formatter: (cell) => {
         const t = TRANSACTION_TYPES.find(tt => tt.value === cell.getValue());
         return t ? `${t.icon} ${t.label}` : cell.getValue();
       },
       headerFilter: "select", headerFilterParams: { values: Object.fromEntries(TRANSACTION_TYPES.map(t => [t.value, t.label])) }
     },
-    { title: "Kategori", field: "category", sorter: "string", headerFilter: "input" },
-    { title: "Tutar", field: "amount", sorter: "number", width: 130,
+    { title: "Kategori", field: "category", sorter: "string", headerFilter: "input", minWidth: 140 },
+    { title: "Tutar", field: "amount", sorter: "number", minWidth: 140,
       formatter: (cell) => formatCurrency(cell.getValue()),
       bottomCalc: "sum", bottomCalcFormatter: (cell) => formatCurrency(cell.getValue())
     },
-    { title: "Ortak", field: "partner_id", sorter: "string", width: 120,
+    { title: "Ortak", field: "partner_id", sorter: "string", minWidth: 120,
       formatter: (cell) => getPartnerName(cell.getValue()),
       headerFilter: "select", headerFilterParams: { values: Object.fromEntries(partners.map(p => [p.id, p.name])) }
     },
-    { title: "Ödeme", field: "payment_method", sorter: "string", width: 120,
+    { title: "Ödeme", field: "payment_method", sorter: "string", minWidth: 140,
       formatter: (cell) => PAYMENT_METHODS.find(m => m.value === cell.getValue())?.label || cell.getValue() },
-    { title: "Kaynak", field: "payment_source", sorter: "string", width: 110,
+    { title: "Kaynak", field: "payment_source", sorter: "string", minWidth: 110,
       formatter: (cell) => cell.getValue() === 'company' ? '🏢 Şirket' : '👤 Kişisel' },
-    { title: "Mahsup", field: "is_settled", sorter: "boolean", width: 80, hozAlign: "center",
+    { title: "Mahsup", field: "is_settled", sorter: "boolean", minWidth: 80, hozAlign: "center",
       formatter: (cell) => {
         const row = cell.getRow().getData();
         if (row.payment_source !== 'personal') return '-';
@@ -311,7 +311,7 @@ const AccountingPage = () => {
         }
       }
     },
-    { title: "Açıklama", field: "description", sorter: "string", headerFilter: "input" },
+    { title: "Açıklama", field: "description", sorter: "string", headerFilter: "input", minWidth: 150 },
     ...(canEdit ? [{
       title: "Sil", field: "id", formatter: () => '<button class="text-red-600 hover:text-red-800 font-bold">✕</button>',
       cellClick: (e, cell) => handleDeleteTransaction(cell.getValue()),
@@ -499,19 +499,19 @@ const AccountingPage = () => {
             <div className={canEdit ? "lg:col-span-2" : "lg:col-span-3"}>
               <div className="bg-white shadow-md rounded-lg p-4 h-full flex flex-col">
                 <h2 className="text-lg font-semibold mb-3 text-gray-700">İşlem Listesi</h2>
-                <div className="flex-1">
+                <div className="flex-1 overflow-x-auto min-h-0">
                   {transactions.length > 0 ? (
                     <ReactTabulator
                       data={transactions}
                       columns={txColumns}
-                      layout="fitDataStretch"
+                      layout="fitData"
                       options={{
                         pagination: "local",
-                        paginationSize: 15,
+                        paginationSize: 10,
                         placeholder: "İşlem bulunamadı",
-                        height: "500px",
                         headerSort: true,
                         resizableColumnFit: true,
+                        responsiveLayout: false, // Prevents collapsing rows into two lines
                       }}
                     />
                   ) : (
@@ -639,22 +639,30 @@ const AccountingPage = () => {
           {/* Period Selector */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button onClick={() => setSummaryYear(y => y - 1)} className="p-1.5 rounded-md hover:bg-white transition-colors"><FiChevronLeft size={18} /></button>
-              <span className="px-3 py-1 font-bold text-gray-800 min-w-[60px] text-center">{summaryYear}</span>
-              <button onClick={() => setSummaryYear(y => y + 1)} className="p-1.5 rounded-md hover:bg-white transition-colors"><FiChevronRight size={18} /></button>
+              <button onClick={() => setSummaryYear(y => y === 'all' ? new Date().getFullYear() : y - 1)} className="p-1.5 rounded-md hover:bg-white transition-colors"><FiChevronLeft size={18} /></button>
+              <span className="px-3 py-1 font-bold text-gray-800 min-w-[80px] text-center">{summaryYear === 'all' ? 'Tümü' : summaryYear}</span>
+              <button onClick={() => setSummaryYear(y => y === 'all' ? new Date().getFullYear() : y + 1)} className="p-1.5 rounded-md hover:bg-white transition-colors"><FiChevronRight size={18} /></button>
             </div>
 
             <div className="flex gap-1 flex-wrap">
-              <button onClick={() => setSummaryMonth(null)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${summaryMonth === null ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
-                Tüm Yıl
+              <button onClick={() => { setSummaryYear('all'); setSummaryMonth(null); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${summaryYear === 'all' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                Tüm Zamanlar
               </button>
-              {MONTH_NAMES.map((name, idx) => (
-                <button key={idx} onClick={() => setSummaryMonth(idx)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${summaryMonth === idx ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
-                  {name.substring(0, 3)}
-                </button>
-              ))}
+              {summaryYear !== 'all' && (
+                <>
+                  <button onClick={() => setSummaryMonth(null)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${summaryMonth === null ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                    Tüm Yıl
+                  </button>
+                  {MONTH_NAMES.map((name, idx) => (
+                    <button key={idx} onClick={() => setSummaryMonth(idx)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${summaryMonth === idx ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                      {name.substring(0, 3)}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
