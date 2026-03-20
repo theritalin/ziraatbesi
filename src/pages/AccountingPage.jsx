@@ -233,6 +233,26 @@ const AccountingPage = () => {
     setActiveTab('transactions');
   };
 
+  // --- Computed: Company Balance ---
+  const companyBalance = useMemo(() => {
+    let balance = 0;
+    transactions.forEach(tx => {
+      const amount = parseFloat(tx.amount) || 0;
+      if (tx.type === 'income') {
+        balance += amount;
+      } else if (tx.type === 'partner_deposit') {
+        balance += amount;
+      } else if (tx.type === 'partner_withdrawal') {
+        balance -= amount;
+      } else if (tx.type === 'reimbursement') {
+        balance -= amount;
+      } else if (tx.type === 'expense' && tx.payment_source === 'company') {
+        balance -= amount;
+      }
+    });
+    return balance;
+  }, [transactions]);
+
   // --- Computed: Summary data ---
   const summaryData = useMemo(() => {
     const filtered = transactions.filter(tx => {
@@ -336,11 +356,26 @@ const AccountingPage = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-2">
-          <FiDollarSign className="text-green-600" /> Muhasebe
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">Gelir, gider, ortak hesapları ve bilanço takibi</p>
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-2">
+            <FiDollarSign className="text-green-600" /> Muhasebe
+          </h1>
+          <p className="mt-1 text-sm text-gray-600">Gelir, gider, ortak hesapları ve bilanço takibi</p>
+        </div>
+        
+        {/* Company Bank Account Balance Badge */}
+        <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border-l-4 shadow-sm bg-white ${companyBalance >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+          <div className={`p-2 rounded-full ${companyBalance >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+            <span className="text-lg">🏦</span>
+          </div>
+          <div>
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Kasa / Banka Bakiyesi</div>
+            <div className={`text-xl sm:text-2xl font-black tabular-nums mt-0.5 ${companyBalance >= 0 ? 'text-gray-900' : 'text-red-700'}`}>
+              {formatCurrency(companyBalance)}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tab Navigation */}
