@@ -46,10 +46,16 @@ const WeighingDayReportView = ({ animals, weighings }) => {
       const currentIndex = animalWeighings.findIndex(w => w.id === curr.id); // Assuming ID is unique, or match by date
       
       // Previous Weighing
-      const prevWeighing = currentIndex > 0 ? animalWeighings[currentIndex - 1] : null;
+      // Fallback to animal registration data if no previous weighing exists
+      const prevWeighing = currentIndex > 0 
+        ? animalWeighings[currentIndex - 1] 
+        : (animal.current_weight && animal.birth_date ? { weigh_date: animal.birth_date, weight_kg: animal.current_weight } : null);
       
       // First Weighing (Registration)
-      const firstWeighing = animalWeighings[0];
+      // Use animal registration data as the absolute first weighing
+      const firstWeighing = (animal.current_weight && animal.birth_date) 
+        ? { id: 'registration', weigh_date: animal.birth_date, weight_kg: animal.current_weight } 
+        : animalWeighings[0];
 
       // Calculations
       let daysDiff = '-';

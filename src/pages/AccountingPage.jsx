@@ -8,7 +8,7 @@ import 'react-tabulator/css/bootstrap/tabulator_bootstrap.min.css';
 import {
   FiDollarSign, FiSave, FiTrash2, FiUsers, FiList, FiPieChart,
   FiPlus, FiArrowUpCircle, FiArrowDownCircle, FiEdit2, FiX, FiCalendar,
-  FiChevronLeft, FiChevronRight
+  FiChevronLeft, FiChevronRight, FiBriefcase, FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 
 const TRANSACTION_TYPES = [
@@ -63,6 +63,7 @@ const AccountingPage = () => {
   const [partnerName, setPartnerName] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
   const [showPartnerForm, setShowPartnerForm] = useState(false);
+  const [expandedPartnerId, setExpandedPartnerId] = useState(null);
 
   // --- Summary State ---
   const [summaryYear, setSummaryYear] = useState('all');
@@ -253,6 +254,17 @@ const AccountingPage = () => {
     return balance;
   }, [transactions]);
 
+  // --- Computed: Company Transactions ---
+  const companyTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      return tx.type === 'income' || 
+             tx.type === 'partner_deposit' || 
+             tx.type === 'partner_withdrawal' || 
+             tx.type === 'reimbursement' || 
+             (tx.type === 'expense' && tx.payment_source === 'company');
+    });
+  }, [transactions]);
+
   // --- Computed: Summary data ---
   const summaryData = useMemo(() => {
     const filtered = transactions.filter(tx => {
@@ -346,7 +358,8 @@ const AccountingPage = () => {
   }
 
   const tabs = [
-    { id: 'transactions', label: 'İşlemler', icon: FiList },
+    { id: 'transactions', label: 'Tüm İşlemler', icon: FiList },
+    { id: 'company', label: 'Şirket', icon: FiBriefcase },
     { id: 'partners', label: 'Ortaklar', icon: FiUsers },
     { id: 'summary', label: 'Özet', icon: FiPieChart },
   ];
@@ -597,7 +610,7 @@ const AccountingPage = () => {
               const receivable = (balance.personalExpenses || 0) - (balance.reimbursements || 0);
 
               return (
-                <div key={partner.id} className="bg-white shadow-md rounded-lg p-5 border-l-4 border-green-500">
+                <div key={partner.id} className={`bg-white shadow-md rounded-lg p-5 border-l-4 border-green-500 flex flex-col transition-all duration-300 ${expandedPartnerId === partner.id ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -655,6 +668,50 @@ const AccountingPage = () => {
                       🔄 Geri Öde ({formatCurrency(receivable)})
                     </button>
                   )}
+
+                  <button 
+                    onClick={() => setExpandedPartnerId(expandedPartnerId === partner.id ? null : partner.id)}
+                    className="w-full mt-3 flex justify-center items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium transition-colors py-2 bg-gray-50 rounded-lg border border-transparent hover:border-green-100"
+                  >
+                    {expandedPartnerId === partner.id ? <><FiChevronUp /> İşlemleri Gizle</> : <><FiChevronDown /> Tüm İşlemleri Göster</>}
+                  </button>
+
+                  {expandedPartnerId === partner.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex-1 overflow-auto opacity-100 animate-fade-in">
+                      <h4 className="text-sm font-bold text-gray-700 mb-3">Ortak İşlem Geçmişi</h4>
+                      <div className="border rounded-md overflow-hidden overflow-x-auto min-w-full">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-gray-50 border-b">
+                            <tr>
+                              <th className="px-3 py-2">Tarih</th>
+                              <th className="px-3 py-2">Tür</th>
+                              <th className="px-3 py-2">Kategori</th>
+                              <th className="px-3 py-2 text-right">Tutar</th>
+                              <th className="px-3 py-2">Açıklama</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 bg-white">
+                            {transactions.filter(t => t.partner_id === partner.id).length === 0 ? (
+                              <tr><td colSpan="5" className="px-3 py-4 text-center text-gray-500">İşlem bulunamadı</td></tr>
+                            ) : (
+                              transactions.filter(t => t.partner_id === partner.id).sort((a,b) => new Date(b.transaction_date) - new Date(a.transaction_date)).map(tx => {
+                                const tKind = TRANSACTION_TYPES.find(tt => tt.value === tx.type);
+                                return (
+                                  <tr key={tx.id} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 whitespace-nowrap">{new Date(tx.transaction_date).toLocaleDateString('tr-TR')}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap"><span className={`${tKind?.color} flex items-center gap-1 font-medium`}>{tKind?.icon} {tKind?.label}</span></td>
+                                    <td className="px-3 py-2">{tx.category || '-'}</td>
+                                    <td className={`px-3 py-2 text-right font-bold ${tx.type === 'income' || tx.type === 'partner_deposit' || tx.type === 'reimbursement' ? 'text-green-700' : 'text-gray-900'}`}>{formatCurrency(tx.amount)}</td>
+                                    <td className="px-3 py-2" title={tx.description || ''}>{tx.description || '-'}</td>
+                                  </tr>
+                                )
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -665,6 +722,49 @@ const AccountingPage = () => {
               Henüz ortak eklenmemiş. Yukarıdan yeni ortak ekleyebilirsiniz.
             </div>
           )}
+        </div>
+      )}
+
+      {/* ==================== TAB: ŞİRKET ==================== */}
+      {activeTab === 'company' && (
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="bg-white shadow-md rounded-lg p-4 h-full flex flex-col">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+               <div>
+                 <h2 className="text-lg font-semibold text-gray-700">Şirket Kasası İşlemleri</h2>
+                 <p className="text-xs text-gray-500 mt-1 max-w-lg">
+                   Sadece şirket kasasından çıkan ve kasaya giren işlemler listelenmektedir. Kişisel hesaptan yapılan harcamalar burada listelenmez.
+                 </p>
+               </div>
+               <div className="bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm border border-blue-200">
+                 <span className="text-blue-600/80 mr-2 text-xs uppercase tracking-wide font-bold">Kasa Bakiyesi</span>
+                 <span className="font-bold text-lg">{formatCurrency(companyBalance)}</span>
+               </div>
+             </div>
+             <div className="flex-1 overflow-x-auto min-h-0 bg-gray-50/50 rounded-lg border border-gray-100">
+               {companyTransactions.length > 0 ? (
+                 <ReactTabulator
+                   data={companyTransactions}
+                   columns={txColumns}
+                   layout="fitData"
+                   options={{
+                     pagination: "local",
+                     paginationSize: 10,
+                     placeholder: "İşlem bulunamadı",
+                     headerSort: true,
+                     resizableColumnFit: true,
+                     responsiveLayout: false,
+                   }}
+                   className="company-tabulator shadow-inner"
+                 />
+               ) : (
+                 <div className="text-center text-gray-500 py-12 flex flex-col items-center">
+                   <FiBriefcase size={32} className="text-gray-300 mb-3" />
+                   <span>Şirket kasasına ait işlem bulunamadı.</span>
+                 </div>
+               )}
+             </div>
+          </div>
         </div>
       )}
 

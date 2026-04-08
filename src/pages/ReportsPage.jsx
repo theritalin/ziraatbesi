@@ -445,9 +445,18 @@ const ReportsPage = () => {
   // GCAA Report Data (Günlük Canlı Ağırlık Artışı)
   const gcaaData = useMemo(() => {
     return visibleAnimals.map(animal => {
-      const animalWeighings = weighings
+      const dbWeighings = weighings
         .filter(w => w.animal_id === animal.id)
         .sort((a, b) => new Date(a.weigh_date) - new Date(b.weigh_date));
+
+      const animalWeighings = [];
+      if (animal.birth_date && animal.current_weight) {
+        animalWeighings.push({
+          weigh_date: animal.birth_date,
+          weight_kg: animal.current_weight
+        });
+      }
+      animalWeighings.push(...dbWeighings);
 
       const gcaaResults = [];
       
