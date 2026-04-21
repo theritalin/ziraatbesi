@@ -9,6 +9,7 @@ import AnimalProfileView from '../components/Reports/AnimalProfileView';
 import DailyVeterinaryView from '../components/Reports/DailyVeterinaryView';
 import WeighingDayReportView from '../components/Reports/WeighingDayReportView';
 import ProjectionReportView from '../components/Reports/ProjectionReportView';
+import Projection2ReportView from '../components/Reports/Projection2ReportView';
 import TotalVeterinaryReportView from '../components/Reports/TotalVeterinaryReportView';
 import MonthlyExpenseReportView from '../components/Reports/MonthlyExpenseReportView';
 import AccountingReportView from '../components/Reports/AccountingReportView';
@@ -695,6 +696,7 @@ const ReportsPage = () => {
             <option value="total_veterinary">Veteriner Özeti (Tümü)</option>
             <option value="weighing_day">Tartım Günü Raporu</option>
             <option value="projection">Projeksiyon Raporu</option>
+            <option value="projection2">Projeksiyon 2 (Alım Analizi)</option>
             <option value="monthly_expense">Aylık Genel Gider Raporu</option>
             <option value="accounting_report">Muhasebe Bilanço Raporu</option>
           </select>
@@ -739,9 +741,20 @@ const ReportsPage = () => {
           <WeighingDayReportView 
             animals={animals}
             weighings={weighings}
+            rations={rations}
+            feeds={feeds}
           />
         ) : reportType === 'projection' ? (
           <ProjectionReportView 
+            animals={visibleAnimals}
+            weighings={weighings}
+            rations={rations}
+            feeds={feeds}
+            costData={costData}
+            generalExpenses={generalExpenses}
+          />
+        ) : reportType === 'projection2' ? (
+          <Projection2ReportView 
             animals={visibleAnimals}
             weighings={weighings}
             rations={rations}
