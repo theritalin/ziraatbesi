@@ -14,6 +14,7 @@ const ReportsPage = React.lazy(() => import('./ReportsPage'));
 const VeterinaryPage = React.lazy(() => import('./VeterinaryPage'));
 const TeamPage = React.lazy(() => import('./TeamPage'));
 const ExpensesPage = React.lazy(() => import('./ExpensesPage'));
+const SalesPage = React.lazy(() => import('./SalesPage'));
 const TodoPage = React.lazy(() => import('./TodoPage'));
 const AccountingPage = React.lazy(() => import('./AccountingPage'));
 
@@ -97,6 +98,7 @@ const DashboardPage = ({ session }) => {
     { id: 'weighing', name: 'Tartım', icon: FiTrendingUp, requiredPerm: 'weighing' },
     { id: 'veterinary', name: 'Veteriner', icon: FiActivity, requiredPerm: 'veterinary' },
     { id: 'expenses', name: 'Giderler', icon: FiDollarSign, requiredPerm: 'expenses' },
+    { id: 'sales', name: 'Satış Ekranı', icon: FiTrendingUp, requiredPerm: 'reports' },
     { id: 'accounting', name: 'Muhasebe', icon: FiBookOpen, requiredPerm: 'accounting' },
     { id: 'reports', name: 'Raporlar', icon: FiBarChart2, requiredPerm: 'reports' },
   ];
@@ -124,6 +126,7 @@ const DashboardPage = ({ session }) => {
       case 'reports': return <ReportsPage />;
       case 'veterinary': return <VeterinaryPage />;
       case 'expenses': return <ExpensesPage />;
+      case 'sales': return <SalesPage />;
       case 'accounting': return <AccountingPage />;
       case 'team': return <TeamPage />;
       default: return <div>Sayfa bulunamadı</div>;
