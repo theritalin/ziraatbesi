@@ -200,11 +200,16 @@ const AnimalsPage = () => {
         .single();
 
       if (user?.farm_id) {
+        const initialHistory = newAnimal.group_id 
+           ? [{ group_id: parseInt(newAnimal.group_id, 10), date: newAnimal.birth_date || new Date().toISOString().split('T')[0] }]
+           : [];
+
         const { error } = await supabase
           .from('animals')
           .insert([{
             farm_id: user.farm_id,
             status: 'active', // Default status
+            group_history: initialHistory,
             ...newAnimal
           }]);
 
@@ -231,6 +236,22 @@ const AnimalsPage = () => {
          return;
       }
 
+      // Fetch the current record from db to see if group_id actually changed
+      const { data: oldData, error: fetchError } = await supabase
+        .from('animals')
+        .select('group_id, group_history')
+        .eq('id', updatedAnimal.id)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
+      let newHistory = oldData.group_history || [];
+      if (oldData.group_id !== newGroupId) {
+         // Group changed!
+         const today = new Date().toISOString().split('T')[0];
+         newHistory = [...newHistory, { group_id: newGroupId, date: today }];
+      }
+
       // Update the animal
       const { error } = await supabase
         .from('animals')
@@ -241,6 +262,7 @@ const AnimalsPage = () => {
           birth_date: updatedAnimal.birth_date,
           purchase_price: updatedAnimal.purchase_price,
           group_id: newGroupId,
+          group_history: newHistory,
         })
         .eq('id', updatedAnimal.id);
 

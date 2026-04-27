@@ -147,7 +147,8 @@ const ExcelImportModal = ({ isOpen, onClose, onSuccess, groups }) => {
             birth_date: r.birth_date,
             purchase_price: r.purchase_price,
             current_weight: r.current_weight,
-            group_id: r.group_id
+            group_id: r.group_id,
+            group_history: r.group_id ? [{ group_id: r.group_id, date: r.birth_date || new Date().toISOString().split('T')[0] }] : []
         }));
 
         const { error: insertError } = await supabase

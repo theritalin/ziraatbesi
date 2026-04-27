@@ -3,8 +3,10 @@ import { ReactTabulator } from 'react-tabulator';
 import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/lib/css/tabulator.min.css';
 import { FiCalendar, FiPrinter, FiFileText } from 'react-icons/fi';
+import { useFarmId } from '../../hooks/useFarmId';
 
 const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
+  const { farmId } = useFarmId();
   // 1. Extract unique dates from weighings, sorted descending
   const availableDates = useMemo(() => {
     const dates = [...new Set(weighings.map(w => w.weigh_date))];
@@ -18,6 +20,29 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
   const [carcassPrice, setCarcassPrice] = useState(650);
   const [yieldPercentage, setYieldPercentage] = useState(58);
   const [customMonthlyExpense, setCustomMonthlyExpense] = useState(45000);
+
+  // Load from localStorage
+  useEffect(() => {
+    if (farmId) {
+      const savedPrice = localStorage.getItem(`weighing_carcassPrice_${farmId}`);
+      if (savedPrice) setCarcassPrice(parseFloat(savedPrice));
+
+      const savedYield = localStorage.getItem(`weighing_yieldPercentage_${farmId}`);
+      if (savedYield) setYieldPercentage(parseFloat(savedYield));
+
+      const savedExpense = localStorage.getItem(`weighing_customMonthlyExpense_${farmId}`);
+      if (savedExpense) setCustomMonthlyExpense(parseFloat(savedExpense));
+    }
+  }, [farmId]);
+
+  // Save to localStorage
+  useEffect(() => {
+    if (farmId) {
+      localStorage.setItem(`weighing_carcassPrice_${farmId}`, carcassPrice);
+      localStorage.setItem(`weighing_yieldPercentage_${farmId}`, yieldPercentage);
+      localStorage.setItem(`weighing_customMonthlyExpense_${farmId}`, customMonthlyExpense);
+    }
+  }, [farmId, carcassPrice, yieldPercentage, customMonthlyExpense]);
 
   const groups = useMemo(() => {
     return [...new Set(animals.map(a => a.group_id).filter(Boolean))].sort((a, b) => a - b);
@@ -35,14 +60,19 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
   // Helper: Calculate Daily Ration Cost per Group
   const groupDailyCosts = useMemo(() => {
     const costs = {};
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    const reportDate = new Date(selectedDate || new Date());
+    reportDate.setHours(0,0,0,0);
 
     const activeRations = rations ? rations.filter(r => {
+        // Only include rations that started on or before reportDate
+        const start = new Date(r.start_date || r.created_at || '2000-01-01');
+        start.setHours(0,0,0,0);
+        if (start > reportDate) return false;
+
         if (!r.end_date) return true;
         const end = new Date(r.end_date);
         end.setHours(0,0,0,0);
-        return end >= today;
+        return end >= reportDate;
     }) : [];
 
     activeRations.forEach(ration => {
@@ -83,7 +113,23 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
     return currentWeighings.map(curr => {
       const animal = animals.find(a => a.id === curr.animal_id);
       if (!animal) return null;
-      if (selectedGroups.length > 0 && !selectedGroups.includes(String(animal.group_id))) return null;
+
+      // Find historical group based on selectedDate
+      let historicalGroupId = animal.group_id; // fallback to current
+      if (animal.group_history && animal.group_history.length > 0) {
+         // Sort history descending (newest first)
+         const sortedHistory = [...animal.group_history].sort((a, b) => new Date(b.date) - new Date(a.date));
+         // Find the first entry where the change date is <= the report date
+         const pastEntry = sortedHistory.find(entry => new Date(entry.date) <= new Date(selectedDate));
+         if (pastEntry) {
+             historicalGroupId = pastEntry.group_id;
+         } else {
+             // If selectedDate is before any history, perhaps use the oldest known group
+             historicalGroupId = sortedHistory[sortedHistory.length - 1].group_id;
+         }
+      }
+
+      if (selectedGroups.length > 0 && !selectedGroups.includes(String(historicalGroupId))) return null;
 
       // Get all weighings for this animal, sorted by date
       const animalWeighings = weighings
@@ -140,7 +186,7 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
       }
 
       // Calculate specific daily cost for this animal
-      const dailyRationCost = groupDailyCosts[animal.group_id] || 0;
+      const dailyRationCost = groupDailyCosts[historicalGroupId] || 0;
       const dailyTotalCost = dailyRationCost + dailyOtherExpense;
 
       // Profit / Loss calculation for this period
@@ -152,7 +198,7 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
       return {
         id: curr.id,
         tag_number: animal.tag_number,
-        group_id: animal.group_id || 'Yok',
+        group_id: historicalGroupId || 'Yok',
         current_weight: curr.weight_kg,
         
         prev_date: prevWeighing ? prevWeighing.weigh_date : '-',

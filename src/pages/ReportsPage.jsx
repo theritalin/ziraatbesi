@@ -293,45 +293,67 @@ const ReportsPage = () => {
 
       // Feed Cost Calculation
       let totalFeedCost = 0;
-      if (animal.group_id) {
-        // Find all rations assigned to this group
-        // Note: Currently the system might only have one active ration per group or multiple.
-        // The user mentioned "20 days" in Rations screen.
-        // We should look for rations matching the group_id.
-        const groupRations = rations.filter(r => r.group_id == animal.group_id);
-        
-        groupRations.forEach(ration => {
-            const dailyCost = calculateRationCost(ration); 
 
-            // Calculate duration
-            let startDate;
-            if (ration.start_date) {
-                startDate = new Date(ration.start_date);
-                startDate.setHours(0, 0, 0, 0);
-            } else {
-                startDate = animal.birth_date ? new Date(animal.birth_date) : new Date();
-                startDate.setHours(0, 0, 0, 0);
-            }
+      // 1. Build animal's group intervals
+      // Fallback to current group_id if no history exists
+      const history = animal.group_history && animal.group_history.length > 0 
+          ? [...animal.group_history].sort((a,b) => new Date(a.date) - new Date(b.date))
+          : [{ group_id: animal.group_id, date: animal.birth_date || '2000-01-01' }];
+      
+      const animalStart = animal.birth_date ? new Date(animal.birth_date) : new Date('2000-01-01');
+      animalStart.setHours(0,0,0,0);
 
-            const endDate = ration.end_date ? new Date(ration.end_date) : new Date();
-            endDate.setHours(0, 0, 0, 0);
-            
-            // Cap end date by animal's passive date if it exists
-            let effectiveEndDate = endDate;
-            if (animal.status === 'passive' && animal.passive_date) {
-                const pDate = new Date(animal.passive_date);
-                pDate.setHours(0,0,0,0);
-                if (pDate < endDate) {
-                    effectiveEndDate = pDate;
-                }
-            }
-            
-            // Calculate duration in days (inclusive of both start and end dates)
-            // Ensure we don't calculate negative duration if start > effectiveEnd
-            const duration = Math.max(0, Math.floor((effectiveEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-            totalFeedCost += duration * dailyCost;
-        });
+      const animalEnd = (animal.status === 'passive' && animal.passive_date) 
+          ? new Date(animal.passive_date) 
+          : new Date();
+      animalEnd.setHours(0,0,0,0);
+
+      const intervals = [];
+      for (let i = 0; i < history.length; i++) {
+          const start = new Date(history[i].date);
+          start.setHours(0,0,0,0);
+          
+          // Cap interval start by animal registration date
+          const effectiveStart = new Date(Math.max(start, animalStart));
+
+          const end = i < history.length - 1 ? new Date(history[i+1].date) : animalEnd;
+          end.setHours(0,0,0,0);
+          
+          if (effectiveStart <= end && history[i].group_id) {
+              intervals.push({
+                  group_id: history[i].group_id,
+                  start: effectiveStart,
+                  end: end
+              });
+          }
       }
+
+      // 2. Iterate intervals and find overlapping rations
+      intervals.forEach(interval => {
+          const groupRations = rations.filter(r => r.group_id == interval.group_id);
+          
+          groupRations.forEach(ration => {
+              const dailyCost = calculateRationCost(ration);
+              
+              const rStart = (ration.start_date || ration.created_at) ? new Date(ration.start_date || ration.created_at) : new Date('2000-01-01');
+              rStart.setHours(0,0,0,0);
+              
+              const rEnd = ration.end_date ? new Date(ration.end_date) : new Date();
+              rEnd.setHours(0,0,0,0);
+
+              // Find overlap between animal's group interval and the ration's active period
+              const overlapStart = new Date(Math.max(interval.start, rStart));
+              const overlapEnd = new Date(Math.min(interval.end, rEnd));
+
+              if (overlapStart <= overlapEnd) {
+                  // Add 1 to make it inclusive (e.g. same day = 1 day of feed)
+                  const durationDays = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+                  if (durationDays > 0) {
+                      totalFeedCost += durationDays * dailyCost;
+                  }
+              }
+          });
+      });
 
       // Veterinary Cost
       const vetCost = veterinaryRecords

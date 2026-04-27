@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFarmId } from '../hooks/useFarmId';
 import { supabase } from '../supabaseClient';
-import { FiUsers, FiClipboard, FiDollarSign, FiPieChart, FiTrendingUp, FiCheckSquare, FiBox, FiActivity, FiBarChart2, FiBookOpen, FiPlus, FiX } from 'react-icons/fi';
+import { FiUsers, FiClipboard, FiDollarSign, FiPieChart, FiTrendingUp, FiCheckSquare, FiBox, FiActivity, FiBarChart2, FiBookOpen, FiPlus, FiX, FiExternalLink } from 'react-icons/fi';
 
 const ALL_LINKS = [
     { id: "todos", title: "Yapılacaklar", iconName: "FiCheckSquare", tab: "todos" },
@@ -358,7 +358,7 @@ const OverviewPage = ({ setActiveTab }) => {
          // 1. Animals (Active Only for performance stats)
         supabase
           .from('animals')
-          .select('id, group_id, purchase_price, birth_date, passive_date, status')
+          .select('id, group_id, group_history, purchase_price, birth_date, passive_date, status')
           .eq('status', 'active')
           .eq('farm_id', farmId),
           
@@ -459,31 +459,61 @@ const OverviewPage = ({ setActiveTab }) => {
 
           // Feed
           let totalFeedCost = 0;
-          if (animal.group_id) {
-            const groupRations = rations.filter(r => r.group_id == animal.group_id);
-            groupRations.forEach(ration => {
-                const dailyCost = calculateRationCost(ration);
-                
-                let startDate = ration.start_date ? new Date(ration.start_date) : (animal.birth_date ? new Date(animal.birth_date) : new Date());
-                startDate.setHours(0,0,0,0);
-                
-                let endDate = ration.end_date ? new Date(ration.end_date) : new Date();
-                endDate.setHours(0,0,0,0);
-                
-                // Active animal, so no passive_date cap needed usually, 
-                // but strictly: intersection of [RationStart, RationEnd] and [AnimalStart, Now]
-                const animStart = animal.birth_date ? new Date(animal.birth_date) : new Date();
-                animStart.setHours(0,0,0,0);
-                
-                const effectiveStart = startDate < animStart ? animStart : startDate;
-                const effectiveEnd = endDate; 
 
-                if (effectiveEnd >= effectiveStart) {
-                     const duration = Math.floor((effectiveEnd - effectiveStart) / (1000 * 60 * 60 * 24)) + 1;
-                     if (duration > 0) totalFeedCost += duration * dailyCost;
-                }
-            });
+          const history = animal.group_history && animal.group_history.length > 0 
+              ? [...animal.group_history].sort((a,b) => new Date(a.date) - new Date(b.date))
+              : [{ group_id: animal.group_id, date: animal.birth_date || '2000-01-01' }];
+          
+          const animalStart = animal.birth_date ? new Date(animal.birth_date) : new Date('2000-01-01');
+          animalStart.setHours(0,0,0,0);
+
+          const animalEnd = (animal.status === 'passive' && animal.passive_date) 
+              ? new Date(animal.passive_date) 
+              : new Date();
+          animalEnd.setHours(0,0,0,0);
+
+          const intervals = [];
+          for (let i = 0; i < history.length; i++) {
+              const start = new Date(history[i].date);
+              start.setHours(0,0,0,0);
+              
+              const effectiveStart = new Date(Math.max(start, animalStart));
+
+              const end = i < history.length - 1 ? new Date(history[i+1].date) : animalEnd;
+              end.setHours(0,0,0,0);
+              
+              if (effectiveStart <= end && history[i].group_id) {
+                  intervals.push({
+                      group_id: history[i].group_id,
+                      start: effectiveStart,
+                      end: end
+                  });
+              }
           }
+
+          intervals.forEach(interval => {
+              const groupRations = rations.filter(r => r.group_id == interval.group_id);
+              
+              groupRations.forEach(ration => {
+                  const dailyCost = calculateRationCost(ration);
+                  
+                  const rStart = (ration.start_date || ration.created_at) ? new Date(ration.start_date || ration.created_at) : new Date('2000-01-01');
+                  rStart.setHours(0,0,0,0);
+                  
+                  const rEnd = ration.end_date ? new Date(ration.end_date) : new Date();
+                  rEnd.setHours(0,0,0,0);
+
+                  const overlapStart = new Date(Math.max(interval.start, rStart));
+                  const overlapEnd = new Date(Math.min(interval.end, rEnd));
+
+                  if (overlapStart <= overlapEnd) {
+                      const durationDays = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+                      if (durationDays > 0) {
+                          totalFeedCost += durationDays * dailyCost;
+                      }
+                  }
+              });
+          });
 
           // Vet
           const vetCost = veterinaryRecords
@@ -548,9 +578,29 @@ const OverviewPage = ({ setActiveTab }) => {
 
   return (
     <div className="h-full overflow-auto p-1">
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Genel Bakış</h1>
-        <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik özet istatistikleri ve kısayollar.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Genel Bakış</h1>
+           <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik özet istatistikleri ve kısayollar.</p>
+        </div>
+        <div className="flex gap-2">
+            <a 
+               href="https://ziraatbesimarket.vercel.app/" 
+               target="_blank" 
+               rel="noopener noreferrer"
+               className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg shadow-sm hover:bg-indigo-100 transition font-medium text-sm flex-1 sm:flex-auto"
+            >
+               Alım Hesaplama <FiExternalLink />
+            </a>
+            <a 
+               href="https://ziraatbesirasyon.vercel.app/" 
+               target="_blank" 
+               rel="noopener noreferrer"
+               className="flex items-center justify-center gap-2 px-3 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg shadow-sm hover:bg-teal-100 transition font-medium text-sm flex-1 sm:flex-auto"
+            >
+               Rasyon Hazırlama <FiExternalLink />
+            </a>
+        </div>
       </div>
 
       <FavoriteLinks setActiveTab={setActiveTab} />

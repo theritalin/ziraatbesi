@@ -184,37 +184,61 @@ const SalesPage = () => {
       const purchasePrice = parseFloat(animal.purchase_price) || 0;
 
       let totalFeedCost = 0;
-      if (animal.group_id) {
-        const groupRations = rations.filter(r => r.group_id == animal.group_id);
-        
-        groupRations.forEach(ration => {
-            const dailyCost = calculateRationCost(ration, feeds); 
 
-            let startDate;
-            if (ration.start_date) {
-                startDate = new Date(ration.start_date);
-                startDate.setHours(0, 0, 0, 0);
-            } else {
-                startDate = animal.birth_date ? new Date(animal.birth_date) : new Date();
-                startDate.setHours(0, 0, 0, 0);
-            }
+      const history = animal.group_history && animal.group_history.length > 0 
+          ? [...animal.group_history].sort((a,b) => new Date(a.date) - new Date(b.date))
+          : [{ group_id: animal.group_id, date: animal.birth_date || '2000-01-01' }];
+      
+      const animalStart = animal.birth_date ? new Date(animal.birth_date) : new Date('2000-01-01');
+      animalStart.setHours(0,0,0,0);
 
-            const endDate = ration.end_date ? new Date(ration.end_date) : new Date();
-            endDate.setHours(0, 0, 0, 0);
-            
-            let effectiveEndDate = endDate;
-            if (animal.status === 'passive' && animal.passive_date) {
-                const pDate = new Date(animal.passive_date);
-                pDate.setHours(0,0,0,0);
-                if (pDate < endDate) {
-                    effectiveEndDate = pDate;
-                }
-            }
-            
-            const duration = Math.max(0, Math.floor((effectiveEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-            totalFeedCost += duration * dailyCost;
-        });
+      const animalEnd = (animal.status === 'passive' && animal.passive_date) 
+          ? new Date(animal.passive_date) 
+          : new Date();
+      animalEnd.setHours(0,0,0,0);
+
+      const intervals = [];
+      for (let i = 0; i < history.length; i++) {
+          const start = new Date(history[i].date);
+          start.setHours(0,0,0,0);
+          
+          const effectiveStart = new Date(Math.max(start, animalStart));
+
+          const end = i < history.length - 1 ? new Date(history[i+1].date) : animalEnd;
+          end.setHours(0,0,0,0);
+          
+          if (effectiveStart <= end && history[i].group_id) {
+              intervals.push({
+                  group_id: history[i].group_id,
+                  start: effectiveStart,
+                  end: end
+              });
+          }
       }
+
+      intervals.forEach(interval => {
+          const groupRations = rations.filter(r => r.group_id == interval.group_id);
+          
+          groupRations.forEach(ration => {
+              const dailyCost = calculateRationCost(ration, feeds);
+              
+              const rStart = (ration.start_date || ration.created_at) ? new Date(ration.start_date || ration.created_at) : new Date('2000-01-01');
+              rStart.setHours(0,0,0,0);
+              
+              const rEnd = ration.end_date ? new Date(ration.end_date) : new Date();
+              rEnd.setHours(0,0,0,0);
+
+              const overlapStart = new Date(Math.max(interval.start, rStart));
+              const overlapEnd = new Date(Math.min(interval.end, rEnd));
+
+              if (overlapStart <= overlapEnd) {
+                  const durationDays = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+                  if (durationDays > 0) {
+                      totalFeedCost += durationDays * dailyCost;
+                  }
+              }
+          });
+      });
 
       const vetCost = veterinaryRecords
         .filter(r => r.animal_id === animal.id)
@@ -331,25 +355,30 @@ const SalesPage = () => {
 
   const statAverages = useMemo(() => {
       const targetData = selectedAnimals.length > 0 ? selectedAnimals : tableData;
-      if (targetData.length === 0) return { count: 0, avgWeight: 0, avgPrice: 0, pairPrice: 0, avgProfit: 0, totalProfit: 0 };
+      if (targetData.length === 0) return { count: 0, avgWeight: 0, avgPrice: 0, pairPrice: 0, avgCost: 0, pairCost: 0, avgProfit: 0, totalProfit: 0 };
       
       let sumWeight = 0;
       let sumPrice = 0;
       let sumProfit = 0;
+      let sumCost = 0;
       
       targetData.forEach(row => {
           sumWeight += row.current_weight;
           sumPrice += row.projected_sales_price;
           sumProfit += row.profit;
+          sumCost += row.total_cost;
       });
       
       const count = targetData.length;
       const avgPrice = sumPrice / count;
+      const avgCost = sumCost / count;
       return {
           count,
           avgWeight: sumWeight / count,
           avgPrice: avgPrice,
           pairPrice: avgPrice * 2,
+          avgCost: avgCost,
+          pairCost: avgCost * 2,
           avgProfit: sumProfit / count,
           totalProfit: sumProfit,
       };
@@ -455,10 +484,10 @@ const SalesPage = () => {
                       <span className="text-sm sm:text-base font-bold text-gray-900 mt-1">{statAverages.avgWeight.toFixed(1)} kg</span>
                   </div>
                   <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex flex-col justify-center items-center text-center">
-                      <FiTrendingUp className="text-blue-500 mb-1" size={18} />
-                      <span className="text-[10px] sm:text-xs font-semibold text-blue-600 uppercase tracking-wider">Ort. Fiyat</span>
+                      <FiDollarSign className="text-blue-500 mb-1" size={18} />
+                      <span className="text-[10px] sm:text-xs font-semibold text-blue-600 uppercase tracking-wider">Çift Maliyeti</span>
                       <span className="text-sm sm:text-base font-bold text-blue-900 mt-1">
-                          {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(statAverages.avgPrice)}
+                          {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(statAverages.pairCost)}
                       </span>
                   </div>
                   <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200 flex flex-col justify-center items-center text-center">
