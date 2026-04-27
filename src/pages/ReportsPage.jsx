@@ -30,10 +30,15 @@ const ReportsPage = () => {
   const [veterinaryRecords, setVeterinaryRecords] = useState([]);
   const [generalExpenses, setGeneralExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reportType, setReportType] = useState('inventory');
+  const [reportType, setReportType] = useState(() => {
+     return localStorage.getItem('reports_initial_tab') || 'inventory';
+  });
   const [showPassives, setShowPassives] = useState(false);
 
   useEffect(() => {
+    if (localStorage.getItem('reports_initial_tab')) {
+        localStorage.removeItem('reports_initial_tab');
+    }
     if (farmId) {
       fetchData();
     }

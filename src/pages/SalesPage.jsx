@@ -225,7 +225,11 @@ const SalesPage = () => {
     return map;
   }, [animals, allAnimals, rations, feeds, veterinaryRecords, generalExpenses]);
 
+  const isUpdatingDataRef = useRef(false);
+  const selectedIdsRef = useRef([]);
+
   const tableData = useMemo(() => {
+    isUpdatingDataRef.current = true;
     let filteredAnimals = animals;
     
     // Filter by group if any are active
@@ -282,6 +286,16 @@ const SalesPage = () => {
         };
     });
   }, [animals, weighings, selectedGroups, carcassPrice, costDataMap]);
+
+  useEffect(() => {
+      const timer = setTimeout(() => {
+          if (tableRef.current?.table && selectedIdsRef.current.length > 0) {
+             tableRef.current.table.selectRow(selectedIdsRef.current);
+          }
+          isUpdatingDataRef.current = false;
+      }, 150);
+      return () => clearTimeout(timer);
+  }, [tableData]);
 
   const columns = useMemo(() => [
     { formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 40, frozen: true, headerHozAlign: "center" },
@@ -342,6 +356,8 @@ const SalesPage = () => {
   }, [tableData, selectedAnimals]);
 
   const handleRowSelectionChanged = (data, rows) => {
+      if (isUpdatingDataRef.current) return;
+      selectedIdsRef.current = data.map(d => d.id);
       setSelectedAnimals(data);
   };
 

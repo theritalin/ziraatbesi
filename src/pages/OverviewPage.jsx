@@ -1,7 +1,159 @@
 import React, { useState, useEffect } from 'react';
 import { useFarmId } from '../hooks/useFarmId';
 import { supabase } from '../supabaseClient';
-import { FiUsers, FiClipboard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { FiUsers, FiClipboard, FiDollarSign, FiPieChart, FiTrendingUp, FiCheckSquare, FiBox, FiActivity, FiBarChart2, FiBookOpen, FiPlus, FiX } from 'react-icons/fi';
+
+const ALL_LINKS = [
+    { id: "todos", title: "Yapılacaklar", iconName: "FiCheckSquare", tab: "todos" },
+    { id: "animals", title: "Hayvanlar", iconName: "FiUsers", tab: "animals" },
+    { id: "feeds", title: "Yem Deposu", iconName: "FiBox", tab: "feeds" },
+    { id: "rations", title: "Rasyonlar", iconName: "FiPieChart", tab: "rations" },
+    { id: "weighing", title: "Tartım Ekle/Düz.", iconName: "FiTrendingUp", tab: "weighing" },
+    { id: "veterinary", title: "Veteriner İşl.", iconName: "FiActivity", tab: "veterinary" },
+    { id: "expenses", title: "Giderler", iconName: "FiDollarSign", tab: "expenses" },
+    { id: "sales", title: "Satış Ekranı", iconName: "FiTrendingUp", tab: "sales" },
+    { id: "accounting", title: "Muhasebe", iconName: "FiBookOpen", tab: "accounting" },
+    { id: "rep_inv", title: "Rapor: Envanter / Kilo", iconName: "FiBarChart2", tab: "reports", subTab: "inventory" },
+    { id: "rep_cost", title: "Rapor: Hayvan Maliyeti", iconName: "FiBarChart2", tab: "reports", subTab: "costs" },
+    { id: "rep_prof", title: "Rapor: Hayvan Profili", iconName: "FiBarChart2", tab: "reports", subTab: "animal_profile" },
+    { id: "rep_weigh", title: "Rapor: Tartım Günü", iconName: "FiBarChart2", tab: "reports", subTab: "weighing_day" },
+    { id: "rep_proj1", title: "Rapor: Projeksiyon", iconName: "FiBarChart2", tab: "reports", subTab: "projection" },
+    { id: "rep_proj2", title: "Rapor: Proj. Detaylı", iconName: "FiBarChart2", tab: "reports", subTab: "projection2" },
+    { id: "rep_vet", title: "Rapor: Toplam Vet.", iconName: "FiBarChart2", tab: "reports", subTab: "total_vet" },
+    { id: "rep_exp", title: "Rapor: Aylık Gider", iconName: "FiBarChart2", tab: "reports", subTab: "monthly_expense" },
+    { id: "rep_acc", title: "Rapor: Şirket Muhasebesi", iconName: "FiBarChart2", tab: "reports", subTab: "accounting" },
+];
+
+const ICONS = {
+    FiCheckSquare, FiUsers, FiBox, FiPieChart, FiTrendingUp, FiActivity, FiDollarSign, FiBarChart2, FiBookOpen
+};
+
+const FavoriteLinks = ({ setActiveTab }) => {
+    const [favorites, setFavorites] = useState([null, null, null, null]);
+    const [editingSlot, setEditingSlot] = useState(null);
+    const { farmId } = useFarmId();
+
+    useEffect(() => {
+        if (farmId) {
+            const saved = localStorage.getItem(`favorites_${farmId}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                const loaded = [null, null, null, null];
+                parsed.forEach((id, idx) => {
+                    if (idx < 4 && id) {
+                        loaded[idx] = ALL_LINKS.find(l => l.id === id) || null;
+                    }
+                });
+                setFavorites(loaded);
+            }
+        }
+    }, [farmId]);
+
+    const handleSave = (newFavs) => {
+        setFavorites(newFavs);
+        if (farmId) {
+            localStorage.setItem(`favorites_${farmId}`, JSON.stringify(newFavs.map(f => f ? f.id : null)));
+        }
+    };
+
+    const handleSelectLink = (linkLink) => {
+        const newFavs = [...favorites];
+        newFavs[editingSlot] = linkLink;
+        handleSave(newFavs);
+        setEditingSlot(null);
+    };
+
+    const handleRemove = (e, index) => {
+        e.stopPropagation();
+        const newFavs = [...favorites];
+        newFavs[index] = null;
+        handleSave(newFavs);
+    };
+
+    const handleNavigate = (fav) => {
+        if (!fav) return;
+        if (fav.subTab) {
+            localStorage.setItem('reports_initial_tab', fav.subTab);
+        }
+        if (setActiveTab) {
+            setActiveTab(fav.tab);
+        }
+    };
+
+    return (
+        <div className="mb-8">
+           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+             Sık Kullanılanlar
+           </h3>
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               {favorites.map((fav, index) => {
+                   if (!fav) {
+                       return (
+                           <button 
+                             key={index}
+                             onClick={() => setEditingSlot(index)}
+                             className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 hover:border-green-400 transition-colors text-gray-500 h-24 relative"
+                           >
+                              <FiPlus className="w-6 h-6 mb-1" />
+                              <span className="text-xs font-semibold">Uygulama Ekle</span>
+                           </button>
+                       );
+                   }
+
+                   const Icon = ICONS[fav.iconName];
+                   return (
+                        <button 
+                            key={index}
+                            onClick={() => handleNavigate(fav)}
+                            className="group flex flex-col items-center justify-center p-4 border border-green-100 bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-sm hover:shadow-md hover:border-green-300 transition-all text-gray-700 h-24 relative"
+                        >
+                            <button 
+                                onClick={(e) => handleRemove(e, index)}
+                                className="absolute top-2 right-2 p-1 bg-red-50 text-red-500 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 transition-opacity"
+                            >
+                                <FiX className="w-3 h-3" />
+                            </button>
+                            <Icon className="w-6 h-6 mb-2 text-green-600" />
+                            <span className="text-xs font-medium text-center leading-tight px-1">{fav.title}</span>
+                        </button>
+                   );
+               })}
+           </div>
+
+           {editingSlot !== null && (
+               <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                   <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col transform scale-100 transition-transform">
+                       <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                           <h4 className="font-bold text-gray-800">Sık Kullanılanlara Ekle</h4>
+                           <button onClick={() => setEditingSlot(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <FiX />
+                           </button>
+                       </div>
+                       <div className="p-4 overflow-y-auto flex-1">
+                           <div className="grid grid-cols-1 gap-2">
+                               {ALL_LINKS.map(link => {
+                                   const LIcon = ICONS[link.iconName];
+                                   return (
+                                       <button 
+                                          key={link.id} 
+                                          onClick={() => handleSelectLink(link)}
+                                          className="flex items-center p-3 text-left hover:bg-green-50 rounded-xl transition-colors border border-transparent hover:border-green-100"
+                                       >
+                                           <div className="bg-white p-2 rounded-lg shadow-sm mr-3 text-green-600 shrink-0">
+                                               <LIcon className="w-5 h-5" />
+                                           </div>
+                                           <span className="font-medium text-gray-700 text-sm">{link.title}</span>
+                                       </button>
+                                   );
+                               })}
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           )}
+        </div>
+    );
+};
 
 const StatCard = ({ icon: Icon, title, value, bgColor }) => (
   <div className={`${bgColor} rounded-lg shadow-md p-6 text-white`}>
@@ -146,7 +298,7 @@ const SalesProjection = ({ groups, salesProjections, onProjectionChange }) => {
   );
 };
 
-const OverviewPage = () => {
+const OverviewPage = ({ setActiveTab }) => {
   const { farmId } = useFarmId();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -398,8 +550,10 @@ const OverviewPage = () => {
     <div className="h-full overflow-auto p-1">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Genel Bakış</h1>
-        <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik özet istatistikleri</p>
+        <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftlik özet istatistikleri ve kısayollar.</p>
       </div>
+
+      <FavoriteLinks setActiveTab={setActiveTab} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

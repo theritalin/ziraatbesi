@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ReactTabulator } from 'react-tabulator';
 import 'react-tabulator/lib/styles.css';
 import 'react-tabulator/lib/css/tabulator.min.css';
-import { FiCalendar, FiPrinter } from 'react-icons/fi';
+import { FiCalendar, FiPrinter, FiFileText } from 'react-icons/fi';
 
 const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
   // 1. Extract unique dates from weighings, sorted descending
@@ -13,6 +13,7 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedRows, setSelectedRows] = useState([]); // Selected rows state
+  const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [carcassPrice, setCarcassPrice] = useState(650);
   const [yieldPercentage, setYieldPercentage] = useState(58);
@@ -213,9 +214,10 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
 
   // 4. Columns
   const columns = useMemo(() => [
-    { title: "Küpe No", field: "tag_number", sorter: "string", headerFilter: "input" },
-    { title: "Grup", field: "group_id", sorter: "string" },
-    { title: "Tartım Kilosu", field: "current_weight", sorter: "number" },
+    { formatter: "responsiveCollapse", width: 40, minWidth: 40, hozAlign: "center", resizable: false, headerSort: false },
+    { title: "Küpe No", field: "tag_number", sorter: "string", headerFilter: "input", minWidth: 100 },
+    { title: "Grup", field: "group_id", sorter: "string", minWidth: 80 },
+    { title: "Tartım Kilosu", field: "current_weight", sorter: "number", minWidth: 100 },
     { title: "Önceki Tarih", field: "prev_date", sorter: "string" },
     { title: "Önceki Kilo", field: "prev_weight", sorter: "number" },
     { title: "Gün Farkı", field: "days_diff", sorter: "number" },
@@ -264,7 +266,8 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
     headerWordWrap: true,
     tooltipsHeader: true,
     headerSort: true,
-    layout: "fitData",
+    layout: "fitColumns",
+    responsiveLayout: "collapse",
     selectable: true, // Enable selection
   }), []);
 
@@ -327,13 +330,22 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
             <p className="text-gray-500">Tarih: {selectedDate ? new Date(selectedDate).toLocaleDateString('tr-TR') : '-'}</p>
         </div>
 
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ml-auto"
-        >
-          <FiPrinter />
-          Yazdır
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto mt-4 sm:mt-0 justify-end">
+            <button 
+              onClick={() => setShowPDFPreview(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <FiFileText />
+              PDF Göster
+            </button>
+            <button 
+              onClick={handlePrint}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <FiPrinter />
+              Yazdır
+            </button>
+        </div>
       </div>
 
       {/* Settings Row */}
@@ -435,6 +447,99 @@ const WeighingDayReportView = ({ animals, weighings, rations, feeds }) => {
             </div>
         )}
       </div>
+
+      {showPDFPreview && (
+          <div className="fixed inset-0 z-[100] bg-white sm:bg-gray-800 flex flex-col sm:p-8 overflow-auto">
+             <div className="bg-white mx-auto w-full max-w-7xl min-h-screen sm:min-h-0 sm:h-auto shadow-2xl flex flex-col print:shadow-none print:w-full print:max-w-none print:m-0 print:p-0">
+                {/* PDF Header Controls (Hidden during print) */}
+                <div className="flex justify-between items-center p-4 border-b bg-gray-50 print:hidden sticky top-0 z-10 sm:static">
+                    <h3 className="font-bold text-lg text-gray-700 w-full sm:w-auto text-center sm:text-left mb-2 sm:mb-0">PDF Önizleme (Yatay)</h3>
+                    <div className="flex gap-2 w-full sm:w-auto justify-center">
+                        <button onClick={() => {
+                            const style = document.createElement('style');
+                            style.innerHTML = '@page { size: landscape; margin: 10mm; } body { padding: 0 !important; }';
+                            document.head.appendChild(style);
+                            window.print();
+                            setTimeout(() => style.remove(), 1000);
+                        }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white flex-1 sm:flex-none justify-center rounded font-medium hover:bg-blue-700">
+                          <FiPrinter /> Çıktı Al
+                        </button>
+                        <button onClick={() => setShowPDFPreview(false)} className="px-4 py-2 bg-gray-300 text-gray-800 flex-1 sm:flex-none justify-center rounded font-medium hover:bg-gray-400">
+                          Kapat
+                        </button>
+                    </div>
+                </div>
+
+                {/* Printable Document Body */}
+                <div className="p-4 sm:p-8 print:p-2 bg-white flex flex-col gap-6" id="pdf-content">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-end border-b-2 border-gray-800 pb-4 gap-4">
+                        <div>
+                            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">GÜNLÜK TARTIM RAPORU</h1>
+                            <p className="text-gray-600 mt-1 font-medium">Tarih: {selectedDate ? new Date(selectedDate).toLocaleDateString('tr-TR') : '-'}</p>
+                        </div>
+                        <div className="text-left sm:text-right text-sm text-gray-500 bg-gray-50 p-2 sm:bg-transparent sm:p-0 rounded">
+                           <p><span className="font-semibold">Karkas Fiyatı:</span> {carcassPrice} TL / %{yieldPercentage}</p>
+                           <p><span className="font-semibold">Aylık Genel Gider:</span> {customMonthlyExpense} TL</p>
+                        </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
+                        <div className="border border-gray-300 p-2 sm:p-3 rounded bg-gray-50 flex flex-col justify-center">
+                            <span className="block text-gray-500">Hayvan Sayısı</span>
+                            <span className="block font-bold text-base sm:text-lg">{summary.count}</span>
+                        </div>
+                        <div className="border border-gray-300 p-2 sm:p-3 rounded bg-gray-50 flex flex-col justify-center">
+                            <span className="block text-gray-500">Ortalama Kilo</span>
+                            <span className="block font-bold text-base sm:text-lg">{summary.avgWeight} kg</span>
+                        </div>
+                        <div className="border border-gray-300 p-2 sm:p-3 rounded bg-gray-50 flex flex-col justify-center">
+                            <span className="block text-gray-500">Ort. GCAA</span>
+                            <span className="block font-bold text-base sm:text-lg">{summary.avgGcaa}</span>
+                        </div>
+                        <div className="border border-gray-300 p-2 sm:p-3 rounded bg-gray-50 flex flex-col justify-center">
+                            <span className="block text-gray-500">Sürünün Net Kazancı</span>
+                            <span className="block font-bold text-base sm:text-lg text-emerald-700">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(summary.totalNetProfit)}</span>
+                        </div>
+                    </div>
+
+                    {/* Simple HTML Table */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-[10px] sm:text-xs text-left border-collapse mt-2">
+                            <thead>
+                                <tr className="bg-gray-200 border-y-2 border-gray-400">
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Küpe No</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Grup</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Son Kilo</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Artış</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">G.GCAA</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Dönem GCAA</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap">Masraf</th>
+                                    <th className="p-1 sm:p-2 border border-gray-300 whitespace-nowrap text-right">Günlük Kar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(selectedRows.length > 0 ? selectedRows : reportData).map(row => (
+                                    <tr key={row.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                        <td className="p-1 sm:p-2 border border-gray-200 font-bold whitespace-nowrap">{row.tag_number}</td>
+                                        <td className="p-1 sm:p-2 border border-gray-200 whitespace-nowrap">{row.group_id}</td>
+                                        <td className="p-1 sm:p-2 border border-gray-200 whitespace-nowrap">{row.current_weight} kg</td>
+                                        <td className="p-1 sm:p-2 border border-gray-200 text-emerald-700 font-bold whitespace-nowrap">{row.weight_gain} kg</td>
+                                        <td className="p-1 sm:p-2 border border-gray-200 whitespace-nowrap">{row.total_gcaa}</td>
+                                        <td className={"p-1 sm:p-2 border border-gray-200 font-bold whitespace-nowrap " + (parseFloat(row.period_gcaa) > 1.2 ? 'text-green-600' : parseFloat(row.period_gcaa) < 0.8 ? 'text-red-600' : '')}>{row.period_gcaa}</td>
+                                        <td className="p-1 sm:p-2 border border-gray-200 whitespace-nowrap">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(row.daily_cost)}</td>
+                                        <td className={"p-1 sm:p-2 border border-gray-200 font-bold text-right whitespace-nowrap " + (row.daily_profit >= 0 ? 'text-green-600' : 'text-red-600')}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(row.daily_profit)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+             </div>
+          </div>
+      )}
+
     </div>
   );
 };
