@@ -189,9 +189,9 @@ const WeighingPage = () => {
         <p className="mt-1 text-sm sm:text-base text-gray-600">Hızlı tartım girişi yapın</p>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-        <div className="flex gap-4 items-end flex-wrap">
-          <div className="flex-1 min-w-[200px]">
+      <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 border border-gray-100">
+        <div className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+          <div className="w-full sm:flex-1 min-w-[200px]">
             <Input
               label="Tartım Tarihi"
               type="date"
@@ -200,12 +200,12 @@ const WeighingPage = () => {
               disabled={!canEdit}
             />
           </div>
-         <div className="flex-1 min-w-[200px]">
+         <div className="w-full sm:flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">Grup Filtresi</label>
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
             >
               <option value="all">Tüm Gruplar ({animals.length})</option>
               {groups.map(g => {
@@ -218,7 +218,7 @@ const WeighingPage = () => {
             </select>
           </div>
           
-          <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 mb-0.5" style={{height: '42px'}}>
+          <div className="w-full sm:w-auto flex items-center justify-center bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 sm:mb-0.5" style={{height: '42px'}}>
             <input
               type="checkbox"
               id="showPassives"
@@ -235,7 +235,7 @@ const WeighingPage = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+              className="w-full sm:w-auto justify-center bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
             >
               <FiSave />
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
@@ -243,9 +243,9 @@ const WeighingPage = () => {
           )}
           <button
             onClick={fetchAnimals}
-            className="bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600"
+            className="w-full sm:w-auto justify-center bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 flex items-center gap-2"
           >
-            <FiRefreshCw />
+            <FiRefreshCw /> Yenile
           </button>
         </div>
         {!canEdit && (
@@ -255,32 +255,82 @@ const WeighingPage = () => {
         )}
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden flex-1">
+      {/* Mobile Card View */}
+      <div className="block md:hidden space-y-4 mb-6">
+        {filteredAnimals.map((animal) => {
+          const existing = existingWeighings[animal.id];
+          return (
+            <div key={animal.id} className={`bg-white rounded-xl shadow-sm border p-4 ${existing ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+               <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
+                   <h3 className="font-bold text-lg text-gray-800">{animal.tag_number}</h3>
+                   <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded-md text-xs font-bold">
+                       Grup {animal.group_id || '-'}
+                   </span>
+               </div>
+               
+               <div className="flex justify-between text-sm text-gray-600 mb-4">
+                   <div className="flex flex-col">
+                      <span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-1">Son Tartım Tarihi</span>
+                      <span className="font-semibold text-gray-800">{existing ? new Date(existing.weigh_date).toLocaleDateString('tr-TR') : (animal.last_weigh_date ? new Date(animal.last_weigh_date).toLocaleDateString('tr-TR') : '-')}</span>
+                   </div>
+                   <div className="flex flex-col text-right">
+                      <span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-1">Son Kilo</span>
+                      <span className="font-semibold text-gray-800">{animal.last_weight_kg ? `${animal.last_weight_kg} kg` : '-'}</span>
+                   </div>
+               </div>
+
+               <div className="mt-2">
+                   <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wider">Yeni Kilo Girişi (kg)</label>
+                   <input
+                     type="number"
+                     step="0.1"
+                     placeholder={existing ? existing.weight_kg : "Kilo giriniz"}
+                     value={weights[animal.id] !== undefined ? weights[animal.id] : (existing ? existing.weight_kg : '')}
+                     onChange={(e) => handleWeightChange(animal.id, e.target.value)}
+                     disabled={!canEdit}
+                     className={`w-full px-4 py-3 border border-gray-300 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${!canEdit ? 'bg-gray-100 text-gray-500' : 'text-green-800 bg-white shadow-inner'}`}
+                   />
+               </div>
+            </div>
+          );
+        })}
+        {filteredAnimals.length === 0 && (
+           <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">Kayıt bulunamadı.</div>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white shadow-md rounded-lg overflow-hidden flex-1 border border-gray-200">
         <div className="overflow-y-auto max-h-[calc(100vh-400px)]">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
+            <thead className="bg-gray-50 sticky top-0 shadow-sm z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Küpe No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grup</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Son Tartım Tarihi</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Son Kilo (kg)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Yeni Kilo (kg)</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Küpe No</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grup</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Son Tartım Tarihi</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Son Kilo (kg)</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Yeni Kilo (kg)</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {filteredAnimals.length === 0 && (
+                <tr>
+                   <td colSpan="5" className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
+                </tr>
+              )}
               {filteredAnimals.map((animal) => {
                 const existing = existingWeighings[animal.id];
                 return (
-                  <tr key={animal.id} className={`hover:bg-gray-50 ${existing ? 'bg-green-50' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium">{animal.tag_number}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{animal.group_id || '-'}</td>
+                  <tr key={animal.id} className={`hover:bg-gray-50 transition-colors ${existing ? 'bg-green-50/50' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap font-bold text-gray-800">{animal.tag_number}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">{animal.group_id || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                       {existing ? new Date(existing.weigh_date).toLocaleDateString('tr-TR') : (animal.last_weigh_date ? new Date(animal.last_weigh_date).toLocaleDateString('tr-TR') : '-')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-semibold">
                       {animal.last_weight_kg || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <input
                         type="number"
                         step="0.1"
@@ -288,7 +338,7 @@ const WeighingPage = () => {
                         value={weights[animal.id] !== undefined ? weights[animal.id] : (existing ? existing.weight_kg : '')}
                         onChange={(e) => handleWeightChange(animal.id, e.target.value)}
                         disabled={!canEdit}
-                        className={`w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!canEdit ? 'bg-gray-100' : ''}`}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent font-semibold ${!canEdit ? 'bg-gray-100' : 'text-green-800 shadow-inner'}`}
                       />
                     </td>
                   </tr>

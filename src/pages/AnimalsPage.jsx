@@ -11,20 +11,48 @@ import { seedAnimals } from '../utils/seedAnimals';
 import Toast from '../components/UI/Toast';
 import ExcelImportModal from '../components/Animals/ExcelImportModal';
 import PassiveModal from '../components/Animals/PassiveModal';
+import ViewAnimalModal from '../components/Animals/ViewAnimalModal';
 
 const AnimalsPage = () => {
   const { farmId, loading: loadingFarmId, fetchFarmId: refetchFarmId } = useFarmId();
   const [animals, setAnimals] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [feeds, setFeeds] = useState([]);
+  const [rations, setRations] = useState([]);
+  const [generalExpenses, setGeneralExpenses] = useState([]);
+  const [veterinaryRecords, setVeterinaryRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isPassiveModalOpen, setIsPassiveModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
+  const [selectedAnimalId, setSelectedAnimalId] = useState(null);
   const [toast, setToast] = useState(null);
   const [showPassives, setShowPassives] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilterGroup, setSelectedFilterGroup] = useState('');
   const tableRef = useRef(null);
+
+  const filteredAnimals = useMemo(() => {
+     let filtered = showPassives ? animals : animals.filter(a => a.status !== 'passive');
+     if (selectedFilterGroup) {
+         filtered = filtered.filter(a => a.group_id && a.group_id.toString() === selectedFilterGroup);
+     }
+     if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(a => 
+           (a.tag_number && a.tag_number.toLowerCase().includes(query)) ||
+           (a.group_id && a.group_id.toString().includes(query))
+        );
+     }
+     return filtered;
+  }, [animals, showPassives, searchQuery, selectedFilterGroup]);
+
+  const viewAnimalData = useMemo(() => {
+    return animals.find(a => a.id === selectedAnimalId) || null;
+  }, [animals, selectedAnimalId]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -49,6 +77,20 @@ const AnimalsPage = () => {
         console.log('Fetched animals:', data);
         setAnimals(data || []);
       }
+
+      // Fetch supplementary data for cost calculations
+      const [feedsRes, rationsRes, expRes, vetRes] = await Promise.all([
+         supabase.from('feeds').select('*').eq('farm_id', farmId),
+         supabase.from('rations').select('*').eq('farm_id', farmId),
+         supabase.from('general_expenses').select('*').eq('farm_id', farmId),
+         supabase.from('veterinary_records').select('*').eq('farm_id', farmId)
+      ]);
+      
+      setFeeds(feedsRes.data || []);
+      setRations(rationsRes.data || []);
+      setGeneralExpenses(expRes.data || []);
+      setVeterinaryRecords(vetRes.data || []);
+      
     } catch (error) {
       console.error('Error fetching animals:', error);
       showToast('Beklenmeyen bir hata oluştu', 'error');
@@ -369,7 +411,8 @@ const AnimalsPage = () => {
         return `<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">Aktif</span>`;
       },
       hozAlign: "center",
-      width: 90
+      width: 90,
+      responsive: 2
     },
     { 
       title: "Küpe No", 
@@ -377,8 +420,7 @@ const AnimalsPage = () => {
       sorter: "string", 
       headerFilter: "input", 
       widthGrow: 2,
-      editor: "input",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 0
     },
     { 
       title: "Kayıt Tarihi", 
@@ -386,15 +428,14 @@ const AnimalsPage = () => {
       sorter: "string", 
       headerFilter: "input", 
       widthGrow: 1,
-      editor: "input",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 3
     },
     {
       title: "Pasif Tarihi",
       field: "passive_date",
       sorter: "string",
       widthGrow: 1,
-      editable: false
+      responsive: 4
     },
     { 
       title: "Alış Fiyatı (TL)", 
@@ -402,8 +443,7 @@ const AnimalsPage = () => {
       sorter: "number", 
       headerFilter: "number",
       widthGrow: 1,
-      editor: "number",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 3
     },
     { 
       title: "Kayıt Ağırlığı (kg)", 
@@ -411,8 +451,7 @@ const AnimalsPage = () => {
       sorter: "number", 
       headerFilter: "number", 
       widthGrow: 1,
-      editor: "number",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 3
     },
     { 
       title: "Son Tartım (kg)", 
@@ -420,8 +459,7 @@ const AnimalsPage = () => {
       sorter: "number", 
       headerFilter: "number", 
       widthGrow: 1,
-      editor: "number",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 1
     },
     { 
       title: "Besi Grubu", 
@@ -429,8 +467,7 @@ const AnimalsPage = () => {
       sorter: "string", 
       headerFilter: "input", 
       widthGrow: 1,
-      editor: "input",
-      cellEdited: (cell) => handleUpdateAnimal(cell.getRow().getData())
+      responsive: 2
     },
     { 
       title: "Aksiyonlar", 
@@ -446,6 +483,7 @@ const AnimalsPage = () => {
       width: 140, 
       hozAlign: "center", 
       headerSort: false,
+      responsive: 0,
       cellClick: (e, cell) => {
         e.stopPropagation();
         const target = e.target;
@@ -478,7 +516,31 @@ const AnimalsPage = () => {
           <p className="mt-1 text-sm sm:text-base text-gray-600">Çiftliğinizdeki hayvanların listesi.</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-                 <button 
+          <div className="w-full sm:w-auto order-first sm:order-none relative">
+            <input 
+               type="text" 
+               placeholder="Küpe veya Grup Ara..." 
+               value={searchQuery}
+               onChange={(e) => setSearchQuery(e.target.value)}
+               className="w-full sm:w-64 pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                    <FiX size={16} />
+                </button>
+            )}
+          </div>
+          <select
+             value={selectedFilterGroup}
+             onChange={(e) => setSelectedFilterGroup(e.target.value)}
+             className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-gray-700"
+          >
+             <option value="">Tüm Gruplar</option>
+             {groups.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+             ))}
+          </select>
+          <button 
             onClick={() => setIsAddModalOpen(true)}
             className="flex-1 sm:flex-none justify-center items-center flex bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors text-sm sm:text-base"
           >
@@ -500,7 +562,7 @@ const AnimalsPage = () => {
             <FiRefreshCw className="mr-2" />
             Yenile
           </button>
-          <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+          <div className="flex items-center justify-center bg-white border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-auto">
             <input
               type="checkbox"
               id="showPassives"
@@ -521,23 +583,77 @@ const AnimalsPage = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
           </div>
         ) : (
-            <div className="flex-1 w-full overflow-hidden">
-             <ReactTabulator
-              onRef={(r) => (tableRef.current = r)}
-              data={showPassives ? animals : animals.filter(a => a.status !== 'passive')}
-              columns={columns}
-              layout={"fitColumns"}
-              options={{
-                pagination: "local",
-                paginationSize: 15,
-                movableColumns: true,
-                resizableRows: true,
-                responsiveLayout: "collapse",
-                height: "100%",
-                placeholder: "Veri yok"
-              }}
-              className="h-full w-full"
-            />
+            <div className="flex-1 w-full overflow-hidden flex flex-col">
+             
+             {/* Mobile Card View (Hidden on Desktop) */}
+             <div className="block lg:hidden flex-1 overflow-y-auto p-2 bg-gray-50 space-y-4">
+               {filteredAnimals.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500">Kayıt bulunamadı.</div>
+               ) : (
+                  filteredAnimals.map(animal => (
+                      <div key={animal.id} onClick={() => { setSelectedAnimalId(animal.id); setIsViewModalOpen(true); }} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 relative cursor-pointer active:scale-[0.98] transition-transform">
+                         <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-3 h-3 rounded-full shadow-sm ${animal.status === 'passive' ? 'bg-gray-400' : 'bg-green-500'}`}></div>
+                                <h3 className="font-bold text-lg text-gray-800 tracking-tight">{animal.tag_number}</h3>
+                            </div>
+                            <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded-md text-xs font-bold">
+                                Grup {animal.group_id || '-'}
+                            </span>
+                         </div>
+                         <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                             <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Kayıt Tarihi</span><span className="font-semibold text-gray-800">{animal.birth_date || '-'}</span></div>
+                             <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Alış Fiyatı</span><span className="font-semibold text-gray-800">{animal.purchase_price ? `${animal.purchase_price} ₺` : '-'}</span></div>
+                             <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">İlk Kilo</span><span className="font-semibold text-gray-800">{animal.current_weight || '-'} kg</span></div>
+                             <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Son Kilo</span><span className="font-semibold text-emerald-700">{animal.last_weight_kg || '-'} kg</span></div>
+                         </div>
+                         <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                             {animal.status === 'passive' ? (
+                                <button onClick={(e) => { e.stopPropagation(); handleActivate(animal); }} className="bg-green-50 text-green-700 border border-green-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors flex-1 flex justify-center items-center gap-1">
+                                   Aktif Et
+                                </button>
+                             ) : (
+                                <button onClick={(e) => { e.stopPropagation(); handlePassiveClick(animal); }} className="bg-orange-50 text-orange-700 border border-orange-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors flex-1 flex justify-center items-center gap-1">
+                                   <FiPower size={14} /> Pasif Yap
+                                </button>
+                             )}
+                             <button onClick={(e) => { e.stopPropagation(); handleDeleteAnimal(animal.id); }} className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex justify-center items-center">
+                                <FiTrash2 size={14} />
+                             </button>
+                         </div>
+                      </div>
+                  ))
+               )}
+             </div>
+
+             {/* Desktop Table View (Hidden on Mobile) */}
+             <div className="hidden lg:block flex-1 w-full h-full">
+               <ReactTabulator
+                onRef={(r) => (tableRef.current = r)}
+                data={filteredAnimals}
+                columns={columns}
+                layout={"fitColumns"}
+                events={{
+                  rowClick: (e, row) => {
+                    if (e.target.tagName !== 'BUTTON') {
+                       const data = row.getData();
+                       setSelectedAnimalId(data.id);
+                       setIsViewModalOpen(true);
+                    }
+                  }
+                }}
+                options={{
+                  pagination: "local",
+                  paginationSize: 15,
+                  movableColumns: true,
+                  resizableRows: true,
+                  responsiveLayout: "collapse",
+                  height: "100%",
+                  placeholder: "Veri yok"
+                }}
+                className="h-full w-full"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -571,6 +687,18 @@ const AnimalsPage = () => {
         onClose={() => setIsPassiveModalOpen(false)}
         onConfirm={handleConfirmPassive}
         animal={selectedAnimal}
+      />
+
+      <ViewAnimalModal 
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        animal={viewAnimalData}
+        allAnimals={animals}
+        feeds={feeds}
+        rations={rations}
+        generalExpenses={generalExpenses}
+        veterinaryRecords={veterinaryRecords}
+        onUpdate={handleUpdateAnimal}
       />
     </div>
   );
