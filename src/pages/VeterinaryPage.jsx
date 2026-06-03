@@ -408,23 +408,56 @@ const VeterinaryPage = () => {
         <div className="lg:col-span-2">
           <div className="bg-white shadow-md rounded-lg p-6 h-full flex flex-col">
             <h2 className="text-lg font-semibold mb-4 text-gray-700">Son İşlemler</h2>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto flex flex-col">
               {records.length > 0 ? (
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <ReactTabulator
-                    key={canEdit ? 'edit' : 'view'}
-                    data={records}
-                    columns={columns}
-                    layout="fitColumns"
-                    options={{
-                      pagination: "local",
-                      paginationSize: 10,
-                      movableColumns: true,
-                      placeholder: "Kayıt bulunamadı",
-                      height: "100%"
-                    }}
-                  />
-                </div>
+                <>
+                  {/* Mobile View */}
+                  <div className="block lg:hidden flex-1 space-y-4 pb-4">
+                     {records.map(rec => (
+                         <div key={rec.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                            <div className="flex justify-between items-start mb-2">
+                               <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                  <h3 className="font-bold text-gray-800">{rec.procedure_name}</h3>
+                               </div>
+                               <span className="text-sm text-gray-500">{rec.process_date}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mb-3 mt-2 text-sm bg-gray-50 p-2 rounded border border-gray-100">
+                                <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block">Küpe No</span><span className="font-semibold">{rec.animals?.tag_number || '-'}</span></div>
+                                <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block">Maliyet</span><span className="font-semibold text-red-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(rec.cost)}</span></div>
+                            </div>
+                            {rec.notes && (
+                               <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">{rec.notes}</p>
+                            )}
+                            {canEdit && (
+                                <div className="flex justify-end pt-2 border-t border-gray-100">
+                                   <button onClick={() => handleDelete(rec.id)} className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 flex items-center gap-1">
+                                      <FiTrash2 size={14} /> Sil
+                                   </button>
+                                </div>
+                            )}
+                         </div>
+                     ))}
+                  </div>
+
+                  {/* Desktop View */}
+                  <div className="hidden lg:block flex-1 bg-white overflow-hidden w-full h-full">
+                    <ReactTabulator
+                      key={canEdit ? 'edit' : 'view'}
+                      data={records}
+                      columns={columns}
+                      layout="fitColumns"
+                      options={{
+                        pagination: "local",
+                        paginationSize: 10,
+                        movableColumns: true,
+                        placeholder: "Kayıt bulunamadı",
+                        height: "100%"
+                      }}
+                      className="w-full h-full"
+                    />
+                  </div>
+                </>
               ) : (
                 <div className="text-center text-gray-500 py-8">Henüz kayıt bulunmamaktadır.</div>
               )}

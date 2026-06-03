@@ -90,12 +90,19 @@ const SalesPage = () => {
     const saved = localStorage.getItem('sales_carcass_price');
     return saved !== null ? parseFloat(saved) : 350;
   });
+  const [calculationMethod, setCalculationMethod] = useState(() => {
+    return localStorage.getItem('sales_calculation_method') || 'market';
+  });
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [selectedAnimals, setSelectedAnimals] = useState([]);
 
   useEffect(() => {
       localStorage.setItem('sales_carcass_price', carcassPrice);
   }, [carcassPrice]);
+
+  useEffect(() => {
+      localStorage.setItem('sales_calculation_method', calculationMethod);
+  }, [calculationMethod]);
 
   const tableRef = useRef(null);
 
@@ -292,24 +299,36 @@ const SalesPage = () => {
         
         currentWeight = currentWeight + (daysPassed * 1.5);
         
-        const appliedRatio = getNearestRatio(currentWeight);
-        const projectedSalesPrice = currentWeight * appliedRatio * carcassPrice;
-        const totalCost = costDataMap[animal.id] || 0;
-        const profit = projectedSalesPrice - totalCost;
+        const initialWeight = animal.current_weight || 0;
+        const gainedWeight = Math.max(0, currentWeight - initialWeight);
+        
+        let projectedSalesPrice = 0;
+        let costToUse = costDataMap[animal.id] || 0;
+        let appliedRatio = getNearestRatio(currentWeight);
+
+        if (calculationMethod === 'performance') {
+            const addedMeatValue = gainedWeight * 0.58 * carcassPrice;
+            projectedSalesPrice = (parseFloat(animal.purchase_price) || 0) + addedMeatValue;
+        } else {
+            projectedSalesPrice = currentWeight * appliedRatio * carcassPrice;
+        }
+
+        const profit = projectedSalesPrice - costToUse;
 
         return {
             id: animal.id,
             tag_number: animal.tag_number,
             group_id: animal.group_id || 'Grup Yok',
             current_weight: currentWeight,
+            gained_weight: gainedWeight,
             applied_ratio: appliedRatio,
             carcass_price: carcassPrice,
-            total_cost: totalCost,
+            total_cost: costToUse,
             projected_sales_price: projectedSalesPrice,
             profit: profit,
         };
     });
-  }, [animals, weighings, selectedGroups, carcassPrice, costDataMap]);
+  }, [animals, weighings, selectedGroups, carcassPrice, calculationMethod, costDataMap]);
 
   useEffect(() => {
       const timer = setTimeout(() => {
@@ -326,7 +345,14 @@ const SalesPage = () => {
     { title: "Küpe", field: "tag_number", width: 100, headerFilter: "input", frozen: true },
     { title: "Grup", field: "group_id", width: 80, headerFilter: "input" },
     { title: "Güncel Kilo (Tahmini)", field: "current_weight", sorter: "number", width: 160, formatter: numberFormatter },
-    { title: "Uygulanan Oran", field: "applied_ratio", sorter: "number", width: 130, formatter: numberFormatter },
+    calculationMethod === 'performance' ? { 
+        title: "Alınan Kilo", field: "gained_weight", sorter: "number", width: 130, formatter: (cell) => {
+            const val = cell.getValue();
+            return val ? `+${val.toFixed(1)} kg` : '0 kg';
+        } 
+    } : { 
+        title: "Uygulanan Oran", field: "applied_ratio", sorter: "number", width: 130, formatter: numberFormatter 
+    },
     { title: "Maliyet", field: "total_cost", sorter: "number", formatter: moneyFormatter, width: 130 },
     { title: "Tahmini Satış Tutarı", field: "projected_sales_price", sorter: "number", formatter: moneyFormatter, width: 160 },
     { 
@@ -345,7 +371,7 @@ const SalesPage = () => {
             return formatted;
         } 
     }
-  ], []);
+  ], [calculationMethod]);
 
   const toggleGroupFilter = (groupId) => {
       setSelectedGroups(prev => 
@@ -383,6 +409,28 @@ const SalesPage = () => {
           totalProfit: sumProfit,
       };
   }, [tableData, selectedAnimals]);
+
+  const toggleAnimalSelection = (animal) => {
+      setSelectedAnimals(prev => {
+          const isSelected = prev.some(a => a.id === animal.id);
+          let newSelection;
+          if (isSelected) {
+              newSelection = prev.filter(a => a.id !== animal.id);
+          } else {
+              newSelection = [...prev, animal];
+          }
+          
+          selectedIdsRef.current = newSelection.map(d => d.id);
+          if (tableRef.current?.table) {
+              if (isSelected) {
+                  tableRef.current.table.deselectRow(animal.id);
+              } else {
+                  tableRef.current.table.selectRow(animal.id);
+              }
+          }
+          return newSelection;
+      });
+  };
 
   const handleRowSelectionChanged = (data, rows) => {
       if (isUpdatingDataRef.current) return;
@@ -426,6 +474,24 @@ const SalesPage = () => {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="w-full">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Hesaplama Yöntemi</label>
+                          <div className="flex bg-gray-100 p-1 rounded-lg">
+                              <button
+                                  onClick={() => setCalculationMethod('market')}
+                                  className={`flex-1 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-colors ${calculationMethod === 'market' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                              >
+                                  Piyasa Fiyatı
+                              </button>
+                              <button
+                                  onClick={() => setCalculationMethod('performance')}
+                                  className={`flex-1 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-colors ${calculationMethod === 'performance' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                              >
+                                  Besi Performansı
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="w-full">
                           <label className="block text-sm font-medium text-gray-700 mb-2">Gösterge Karkas Fiyatı (TL/kg)</label>
                           <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -441,7 +507,7 @@ const SalesPage = () => {
                           </div>
                       </div>
 
-                      <div className="w-full">
+                      <div className="w-full sm:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">Tablo Filtresi (Gruplara Göre)</label>
                           <div className="flex flex-wrap gap-2 items-center">
                               {groups.map(g => (
@@ -515,26 +581,75 @@ const SalesPage = () => {
           </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[400px]">
-        <ReactTabulator
-            ref={tableRef}
-            data={tableData}
-            columns={columns}
-            layout="fitColumns"
-            events={{
-                rowSelectionChanged: handleRowSelectionChanged
-            }}
-            options={{
-                selectable: true,
-                pagination: "local",
-                paginationSize: 50,
-                placeholder: "Filtrelere uygun hayvan verisi bulunamadı.",
-                height: "100%",
-                layout: "fitDataFill",
-                responsiveLayout: "collapse",
-                resizableColumns: true,
-            }}
-        />
+      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[400px] flex flex-col">
+        {/* Mobile View */}
+        <div className="block lg:hidden flex-1 overflow-y-auto p-3 bg-gray-50 space-y-4">
+           {tableData.length === 0 ? (
+               <div className="text-center py-10 text-gray-500">Kayıt bulunamadı.</div>
+           ) : (
+               tableData.map(row => {
+                   const isSelected = selectedAnimals.some(a => a.id === row.id);
+                   return (
+                   <div 
+                      key={row.id} 
+                      onClick={() => toggleAnimalSelection(row)}
+                      className={`bg-white rounded-xl shadow-sm border p-4 cursor-pointer transition-all ${isSelected ? 'border-green-500 ring-1 ring-green-500 bg-green-50' : 'border-gray-200'}`}
+                   >
+                      <div className="flex justify-between items-start mb-3">
+                         <div className="flex items-center gap-3">
+                             <input type="checkbox" checked={isSelected} readOnly className="h-4 w-4 text-green-600 rounded border-gray-300" />
+                             <div className="w-3 h-3 rounded-full shadow-sm bg-green-500"></div>
+                             <h3 className="font-bold text-lg text-gray-800">{row.tag_number}</h3>
+                         </div>
+                         <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded-md text-xs font-bold">
+                             Grup {row.group_id}
+                         </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                          <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Güncel Kilo</span><span className="font-semibold text-gray-800">{row.current_weight.toFixed(1)} kg</span></div>
+                          {calculationMethod === 'performance' ? (
+                              <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Alınan Kilo</span><span className="font-semibold text-green-600">+{row.gained_weight.toFixed(1)} kg</span></div>
+                          ) : (
+                              <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Uyg. Oran</span><span className="font-semibold text-gray-800">{row.applied_ratio.toFixed(2)}</span></div>
+                          )}
+                          <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Maliyet</span><span className="font-semibold text-red-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(row.total_cost)}</span></div>
+                          <div><span className="text-gray-400 text-[11px] uppercase font-bold tracking-wider block mb-1">Satış Tutarı</span><span className="font-semibold text-indigo-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(row.projected_sales_price)}</span></div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Fark (Kar)</span>
+                          <span className={`font-bold text-lg ${row.profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                             {row.profit > 0 ? '+' : ''}{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(row.profit)}
+                          </span>
+                      </div>
+                   </div>
+                   );
+               })
+           )}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden lg:block flex-1 w-full h-full">
+            <ReactTabulator
+                ref={tableRef}
+                data={tableData}
+                columns={columns}
+                layout="fitColumns"
+                events={{
+                    rowSelectionChanged: handleRowSelectionChanged
+                }}
+                options={{
+                    selectable: true,
+                    pagination: "local",
+                    paginationSize: 50,
+                    placeholder: "Filtrelere uygun hayvan verisi bulunamadı.",
+                    height: "100%",
+                    layout: "fitDataFill",
+                    responsiveLayout: "collapse",
+                    resizableColumns: true,
+                }}
+                className="h-full w-full"
+            />
+        </div>
       </div>
     </div>
   );

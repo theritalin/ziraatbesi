@@ -293,18 +293,49 @@ const ExpensesPage = () => {
         <div className={canEdit ? "lg:col-span-2" : "lg:col-span-3"}>
           <div className="bg-white shadow-md rounded-lg p-6 h-full flex flex-col">
             <h2 className="text-lg font-semibold mb-4 text-gray-700">Gider Listesi</h2>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto flex flex-col">
               {expenses.length > 0 ? (
-                <ReactTabulator
-                  data={expenses}
-                  columns={columns}
-                  layout="fitColumns"
-                  options={{
-                    pagination: "local",
-                    paginationSize: 10,
-                    placeholder: "Gider kaydı bulunamadı",
-                  }}
-                />
+                <>
+                  {/* Mobile View */}
+                  <div className="block lg:hidden flex-1 space-y-4 pb-4">
+                     {expenses.map(exp => (
+                         <div key={exp.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                            <div className="flex justify-between items-start mb-2">
+                               <h3 className="font-bold text-gray-800">{exp.category}</h3>
+                               <span className="text-sm text-gray-500">{exp.expense_date}</span>
+                            </div>
+                            <div className="mb-3 text-lg font-bold text-red-600">
+                                {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(exp.amount)}
+                            </div>
+                            {exp.description && (
+                               <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">{exp.description}</p>
+                            )}
+                            {canEdit && (
+                                <div className="flex justify-end pt-2 border-t border-gray-100">
+                                   <button onClick={() => handleDelete(exp.id)} className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 flex items-center gap-1">
+                                      <FiTrash2 size={14} /> Sil
+                                   </button>
+                                </div>
+                            )}
+                         </div>
+                     ))}
+                  </div>
+
+                  {/* Desktop View */}
+                  <div className="hidden lg:block flex-1 w-full h-full">
+                    <ReactTabulator
+                      data={expenses}
+                      columns={columns}
+                      layout="fitColumns"
+                      options={{
+                        pagination: "local",
+                        paginationSize: 10,
+                        placeholder: "Gider kaydı bulunamadı",
+                      }}
+                      className="w-full h-full"
+                    />
+                  </div>
+                </>
               ) : (
                 <div className="text-center text-gray-500 py-8">Henüz gider kaydı bulunmamaktadır.</div>
               )}
